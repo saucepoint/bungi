@@ -10,10 +10,12 @@ import {IPoolManager} from "@uniswap/v4-core/contracts/interfaces/IPoolManager.s
 import {Deployers} from "@uniswap/v4-core/test/foundry-tests/utils/Deployers.sol";
 import {CurrencyLibrary, Currency} from "@uniswap/v4-core/contracts/types/Currency.sol";
 import {IHooks} from "@uniswap/v4-core/contracts/interfaces/IHooks.sol";
+import {Position, PositionId, PositionIdLibrary} from "../src/types/PositionId.sol";
 
 contract LiquidityPositionManagerTest is HookTest, Deployers {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
+    using PositionIdLibrary for Position;
 
     LiquidityPositionManager lpm;
 
@@ -40,8 +42,26 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
     function test_removePartialLiquidity() public {}
     function test_addPartialLiquidity() public {}
 
-    function test_shiftLiquidity() public {
-        addLiquidity(poolKey, -600, 600, 1e18);
+    function test_expandLiquidity() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        addLiquidity(poolKey, tickLower, tickUpper, 1e18);
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+
+        int24 newTickLower = -1200;
+        int24 newTickUpper = 1200;
+        int256 liquidityDelta = 0;
+        lpm.modifyExistingPosition(
+            address(this),
+            position,
+            IPoolManager.ModifyPositionParams({
+                tickLower: newTickLower,
+                tickUpper: newTickUpper,
+                liquidityDelta: liquidityDelta
+            }),
+            ZERO_BYTES,
+            ZERO_BYTES
+        );
     }
 
     function addLiquidity(PoolKey memory key, int24 tickLower, int24 tickUpper, uint256 liquidity) internal {
