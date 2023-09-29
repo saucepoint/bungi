@@ -14,6 +14,7 @@ import {Position, PositionId, PositionIdLibrary} from "../src/types/PositionId.s
 import {LiquidityAmounts} from "v4-periphery/libraries/LiquidityAmounts.sol";
 import {TickMath} from "@uniswap/v4-core/contracts/libraries/TickMath.sol";
 import {Position as PoolPosition} from "@uniswap/v4-core/contracts/libraries/Position.sol";
+import {LiquidityHelpers} from "../src/lens/LiquidityHelpers.sol";
 
 contract LiquidityPositionManagerTest is HookTest, Deployers {
     using PoolIdLibrary for PoolKey;
@@ -21,6 +22,7 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
     using PositionIdLibrary for Position;
 
     LiquidityPositionManager lpm;
+    LiquidityHelpers helper;
 
     PoolKey poolKey;
     PoolId poolId;
@@ -29,6 +31,7 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         HookTest.initHookTestEnv();
 
         lpm = new LiquidityPositionManager(IPoolManager(address(manager)));
+        helper = new LiquidityHelpers(IPoolManager(address(manager)), lpm);
 
         token0.approve(address(lpm), type(uint256).max);
         token1.approve(address(lpm), type(uint256).max);
@@ -73,7 +76,7 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         int24 newTickLower = -1200;
         int24 newTickUpper = 1200;
 
-        uint128 newLiquidity = lpm.getNewLiquidity(position, -liquidity, newTickLower, newTickUpper);
+        uint128 newLiquidity = helper.getNewLiquidity(position, -liquidity, newTickLower, newTickUpper);
         lpm.modifyExistingPosition(
             address(this),
             position,
