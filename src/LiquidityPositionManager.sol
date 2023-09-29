@@ -35,18 +35,26 @@ contract LiquidityPositionManager is ERC6909 {
         manager = _manager;
     }
 
-    function modifyExistingPosition(
+    /// @notice Given an existing position, readjust it to a new range, optionally using net-new tokens
+    ///     This function supports partially withdrawing tokens from an LP to open up a new position
+    /// @param owner The owner of the position
+    /// @param position The position to rebalance
+    /// @param existingLiquidityDelta How much liquidity to remove from the existing position
+    /// @param params The new position parameters
+    /// @param hookDataOnBurn the arbitrary bytes to provide to hooks when the existing position is modified
+    /// @param hookDataOnMint the arbitrary bytes to provide to hooks when the new position is created
+    function rebalancePosition(
         address owner,
         Position memory position,
         int256 existingLiquidityDelta,
         IPoolManager.ModifyPositionParams memory params,
         bytes calldata hookDataOnBurn,
         bytes calldata hookDataOnMint
-    ) external {
-        BalanceDelta delta = abi.decode(
+    ) external returns (BalanceDelta delta) {
+        delta = abi.decode(
             manager.lock(
                 abi.encodeCall(
-                    this.handleModifyExistingPosition,
+                    this.handleRebalancePosition,
                     (msg.sender, owner, position, existingLiquidityDelta, params, hookDataOnBurn, hookDataOnMint)
                 )
             ),
@@ -54,6 +62,10 @@ contract LiquidityPositionManager is ERC6909 {
         );
 
         // adjust 6909 balances
+        _burn(owner, position.toTokenId(), uint256(-existingLiquidityDelta));
+        uint256 newPositionTokenId =
+            Position({poolKey: position.poolKey, tickLower: params.tickLower, tickUpper: params.tickUpper}).toTokenId();
+        _mint(owner, newPositionTokenId, uint256(params.liquidityDelta));
 
         uint256 ethBalance = address(this).balance;
         if (ethBalance > 0) {
@@ -61,7 +73,7 @@ contract LiquidityPositionManager is ERC6909 {
         }
     }
 
-    function handleModifyExistingPosition(
+    function handleRebalancePosition(
         address sender,
         address owner,
         Position memory position,
@@ -86,63 +98,14 @@ contract LiquidityPositionManager is ERC6909 {
 
         delta = deltaBurn + deltaMint;
 
-        if (delta.amount0() > 0) {
-            if (key.currency0.isNative()) {
-                manager.settle{value: uint128(delta.amount0())}(key.currency0);
-            } else {
-                IERC20(Currency.unwrap(key.currency0)).transferFrom(sender, address(manager), uint128(delta.amount0()));
-                manager.settle(key.currency0);
-            }
-        }
-        if (delta.amount1() > 0) {
-            if (key.currency1.isNative()) {
-                manager.settle{value: uint128(delta.amount1())}(key.currency1);
-            } else {
-                IERC20(Currency.unwrap(key.currency1)).transferFrom(sender, address(manager), uint128(delta.amount1()));
-                manager.settle(key.currency1);
-            }
-        }
-
-        if (delta.amount0() < 0) {
-            manager.take(key.currency0, sender, uint128(-delta.amount0()));
-        }
-        if (delta.amount1() < 0) {
-            manager.take(key.currency1, sender, uint128(-delta.amount1()));
-        }
+        processBalanceDelta(sender, key.currency0, key.currency1, delta);
     }
 
     function handleModifyPosition(bytes memory rawData) external returns (BalanceDelta delta) {
         CallbackData memory data = abi.decode(rawData, (CallbackData));
 
         delta = manager.modifyPosition(data.key, data.params, data.hookData);
-
-        if (delta.amount0() > 0) {
-            if (data.key.currency0.isNative()) {
-                manager.settle{value: uint128(delta.amount0())}(data.key.currency0);
-            } else {
-                IERC20(Currency.unwrap(data.key.currency0)).transferFrom(
-                    data.sender, address(manager), uint128(delta.amount0())
-                );
-                manager.settle(data.key.currency0);
-            }
-        }
-        if (delta.amount1() > 0) {
-            if (data.key.currency1.isNative()) {
-                manager.settle{value: uint128(delta.amount1())}(data.key.currency1);
-            } else {
-                IERC20(Currency.unwrap(data.key.currency1)).transferFrom(
-                    data.sender, address(manager), uint128(delta.amount1())
-                );
-                manager.settle(data.key.currency1);
-            }
-        }
-
-        if (delta.amount0() < 0) {
-            manager.take(data.key.currency0, data.sender, uint128(-delta.amount0()));
-        }
-        if (delta.amount1() < 0) {
-            manager.take(data.key.currency1, data.sender, uint128(-delta.amount1()));
-        }
+        processBalanceDelta(data.sender, data.key.currency0, data.key.currency1, delta);
     }
 
     function modifyPosition(
@@ -150,26 +113,26 @@ contract LiquidityPositionManager is ERC6909 {
         PoolKey memory key,
         IPoolManager.ModifyPositionParams memory params,
         bytes calldata hookData
-    ) public {
-        bytes memory result = manager.lock(
-            abi.encodeCall(
-                this.handleModifyPosition, abi.encode(CallbackData(msg.sender, owner, key, params, hookData))
-            )
+    ) external returns (BalanceDelta delta) {
+        delta = abi.decode(
+            manager.lock(
+                abi.encodeCall(
+                    this.handleModifyPosition, abi.encode(CallbackData(msg.sender, owner, key, params, hookData))
+                )
+            ),
+            (BalanceDelta)
         );
-        BalanceDelta delta = abi.decode(result, (BalanceDelta));
 
-        // for now assume that modifyPosition is for ADD
-        require(delta.amount0() > 0, "Must add amount0");
-        require(delta.amount1() > 0, "Must add amount1");
+        uint256 tokenId = Position({poolKey: key, tickLower: params.tickLower, tickUpper: params.tickUpper}).toTokenId();
 
-        PositionId positionId =
-            Position({poolKey: key, tickLower: params.tickLower, tickUpper: params.tickUpper}).toId();
-
-        // TODO: guarantee that k is less than int256 max
-        // TODO: proper book keeping to avoid double-counting
-        uint256 liquidity =
-            uint256(manager.getPosition(key.toId(), address(this), params.tickLower, params.tickUpper).liquidity);
-        _mint(owner, uint256(PositionId.unwrap(positionId)), liquidity);
+        // burn 6909
+        if (params.liquidityDelta < 0) {
+            _burn(owner, tokenId, uint256(-params.liquidityDelta));
+        } else {
+            // TODO: guarantee that k is less than int256 max
+            // TODO: proper book keeping to avoid double-counting
+            _mint(owner, tokenId, uint256(params.liquidityDelta));
+        }
 
         uint256 ethBalance = address(this).balance;
         if (ethBalance > 0) {
@@ -190,9 +153,40 @@ contract LiquidityPositionManager is ERC6909 {
         }
     }
 
+    function processBalanceDelta(address sender, Currency currency0, Currency currency1, BalanceDelta delta) internal {
+        if (delta.amount0() > 0) {
+            if (currency0.isNative()) {
+                manager.settle{value: uint128(delta.amount0())}(currency0);
+            } else {
+                IERC20(Currency.unwrap(currency0)).transferFrom(sender, address(manager), uint128(delta.amount0()));
+                manager.settle(currency0);
+            }
+        }
+        if (delta.amount1() > 0) {
+            if (currency1.isNative()) {
+                manager.settle{value: uint128(delta.amount1())}(currency1);
+            } else {
+                IERC20(Currency.unwrap(currency1)).transferFrom(sender, address(manager), uint128(delta.amount1()));
+                manager.settle(currency1);
+            }
+        }
+
+        if (delta.amount0() < 0) {
+            manager.take(currency0, sender, uint128(-delta.amount0()));
+        }
+        if (delta.amount1() < 0) {
+            manager.take(currency1, sender, uint128(-delta.amount1()));
+        }
+    }
+
     // --- ERC-6909 --- //
     function _mint(address owner, uint256 tokenId, uint256 amount) internal {
         balanceOf[owner][tokenId] += amount;
         emit Transfer(msg.sender, address(this), owner, tokenId, amount);
+    }
+
+    function _burn(address owner, uint256 tokenId, uint256 amount) internal {
+        balanceOf[owner][tokenId] -= amount;
+        emit Transfer(msg.sender, owner, address(this), tokenId, amount);
     }
 }

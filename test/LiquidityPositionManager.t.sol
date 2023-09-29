@@ -57,11 +57,55 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
             }),
             ZERO_BYTES
         );
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), liquidity);
     }
 
-    function test_removeFullLiquidity() public {}
-    function test_removePartialLiquidity() public {}
-    function test_addPartialLiquidity() public {}
+    function test_removeFullLiquidity() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        uint256 liquidity = 1e18;
+        addLiquidity(poolKey, tickLower, tickUpper, liquidity);
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), liquidity);
+        lpm.modifyPosition(
+            address(this),
+            poolKey,
+            IPoolManager.ModifyPositionParams({
+                tickLower: tickLower,
+                tickUpper: tickUpper,
+                liquidityDelta: -int256(liquidity)
+            }),
+            ZERO_BYTES
+        );
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), 0);
+    }
+
+    function test_removePartialLiquidity() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        uint256 liquidity = 1e18;
+        addLiquidity(poolKey, tickLower, tickUpper, liquidity);
+
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        uint256 balanceBefore = lpm.balanceOf(address(this), position.toTokenId());
+        removeLiquidity(poolKey, tickLower, tickUpper, liquidity / 2); // remove half of the position
+
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), balanceBefore / 2);
+    }
+
+    function test_addPartialLiquidity() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        uint256 liquidity = 1e18;
+        addLiquidity(poolKey, tickLower, tickUpper, liquidity);
+
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        uint256 balanceBefore = lpm.balanceOf(address(this), position.toTokenId());
+        addLiquidity(poolKey, tickLower, tickUpper, liquidity / 2); // add half of the position
+
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), balanceBefore + liquidity / 2);
+    }
 
     function test_expandLiquidity() public {
         int24 tickLower = -600;
@@ -76,8 +120,10 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         int24 newTickLower = -1200;
         int24 newTickUpper = 1200;
 
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), uint256(liquidity));
+
         uint128 newLiquidity = helper.getNewLiquidity(position, -liquidity, newTickLower, newTickUpper);
-        lpm.modifyExistingPosition(
+        lpm.rebalancePosition(
             address(this),
             position,
             -liquidity, // fully unwind
@@ -93,6 +139,13 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         // new liquidity position did not require net-new tokens
         assertEq(token0.balanceOf(address(this)), balance0Before);
         assertEq(token1.balanceOf(address(this)), balance1Before);
+
+        // old position was unwound entirely
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), 0);
+
+        // new position was created
+        Position memory newPosition = Position({poolKey: poolKey, tickLower: newTickLower, tickUpper: newTickUpper});
+        assertEq(lpm.balanceOf(address(this), newPosition.toTokenId()), uint256(newLiquidity));
     }
 
     function addLiquidity(PoolKey memory key, int24 tickLower, int24 tickUpper, uint256 liquidity) internal {
@@ -103,6 +156,19 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: int256(liquidity)
+            }),
+            ZERO_BYTES
+        );
+    }
+
+    function removeLiquidity(PoolKey memory key, int24 tickLower, int24 tickUpper, uint256 liquidity) internal {
+        lpm.modifyPosition(
+            address(this),
+            key,
+            IPoolManager.ModifyPositionParams({
+                tickLower: tickLower,
+                tickUpper: tickUpper,
+                liquidityDelta: -int256(liquidity)
             }),
             ZERO_BYTES
         );
