@@ -59,7 +59,9 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         );
     }
 
-    function test_removeFullLiquidity() public {}
+    function test_removeFullLiquidity() public {
+
+    }
     function test_removePartialLiquidity() public {}
     function test_addPartialLiquidity() public {}
 
@@ -77,7 +79,7 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         int24 newTickUpper = 1200;
 
         uint128 newLiquidity = helper.getNewLiquidity(position, -liquidity, newTickLower, newTickUpper);
-        lpm.modifyExistingPosition(
+        lpm.rebalancePosition(
             address(this),
             position,
             -liquidity, // fully unwind

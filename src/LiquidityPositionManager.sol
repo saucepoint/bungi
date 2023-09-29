@@ -35,15 +35,23 @@ contract LiquidityPositionManager is ERC6909 {
         manager = _manager;
     }
 
-    function modifyExistingPosition(
+    /// @notice Given an existing position, readjust it to a new range, optionally using net-new tokens
+    ///     This function supports partially withdrawing tokens from an LP to open up a new position
+    /// @param owner The owner of the position
+    /// @param position The position to rebalance
+    /// @param existingLiquidityDelta How much liquidity to remove from the existing position
+    /// @param params The new position parameters
+    /// @param hookDataOnBurn the arbitrary bytes to provide to hooks when the existing position is modified
+    /// @param hookDataOnMint the arbitrary bytes to provide to hooks when the new position is created
+    function rebalancePosition(
         address owner,
         Position memory position,
         int256 existingLiquidityDelta,
         IPoolManager.ModifyPositionParams memory params,
         bytes calldata hookDataOnBurn,
         bytes calldata hookDataOnMint
-    ) external {
-        BalanceDelta delta = abi.decode(
+    ) external returns (BalanceDelta delta) {
+        delta = abi.decode(
             manager.lock(
                 abi.encodeCall(
                     this.handleModifyExistingPosition,
