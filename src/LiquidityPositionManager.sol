@@ -158,26 +158,26 @@ contract LiquidityPositionManager is ERC6909 {
         PoolKey memory key,
         IPoolManager.ModifyPositionParams memory params,
         bytes calldata hookData
-    ) public {
-        bytes memory result = manager.lock(
-            abi.encodeCall(
-                this.handleModifyPosition, abi.encode(CallbackData(msg.sender, owner, key, params, hookData))
-            )
+    ) external returns (BalanceDelta delta) {
+        delta = abi.decode(
+            manager.lock(
+                abi.encodeCall(
+                    this.handleModifyPosition, abi.encode(CallbackData(msg.sender, owner, key, params, hookData))
+                )
+            ),
+            (BalanceDelta)
         );
-        BalanceDelta delta = abi.decode(result, (BalanceDelta));
 
-        // for now assume that modifyPosition is for ADD
-        require(delta.amount0() > 0, "Must add amount0");
-        require(delta.amount1() > 0, "Must add amount1");
+        uint256 tokenId = Position({poolKey: key, tickLower: params.tickLower, tickUpper: params.tickUpper}).toTokenId();
 
-        PositionId positionId =
-            Position({poolKey: key, tickLower: params.tickLower, tickUpper: params.tickUpper}).toId();
-
-        // TODO: guarantee that k is less than int256 max
-        // TODO: proper book keeping to avoid double-counting
-        uint256 liquidity =
-            uint256(manager.getPosition(key.toId(), address(this), params.tickLower, params.tickUpper).liquidity);
-        _mint(owner, uint256(PositionId.unwrap(positionId)), liquidity);
+        // burn 6909
+        if (params.liquidityDelta < 0) {
+            _burn(owner, tokenId, uint256(-params.liquidityDelta));
+        } else {
+            // TODO: guarantee that k is less than int256 max
+            // TODO: proper book keeping to avoid double-counting
+            _mint(owner, tokenId, uint256(params.liquidityDelta));
+        }
 
         uint256 ethBalance = address(this).balance;
         if (ethBalance > 0) {
@@ -202,5 +202,10 @@ contract LiquidityPositionManager is ERC6909 {
     function _mint(address owner, uint256 tokenId, uint256 amount) internal {
         balanceOf[owner][tokenId] += amount;
         emit Transfer(msg.sender, address(this), owner, tokenId, amount);
+    }
+
+    function _burn(address owner, uint256 tokenId, uint256 amount) internal {
+        balanceOf[owner][tokenId] -= amount;
+        emit Transfer(msg.sender, owner, address(this), tokenId, amount);
     }
 }

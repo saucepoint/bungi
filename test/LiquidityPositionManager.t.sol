@@ -57,11 +57,30 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
             }),
             ZERO_BYTES
         );
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), liquidity);
     }
 
     function test_removeFullLiquidity() public {
-
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        uint256 liquidity = 1e18;
+        addLiquidity(poolKey, tickLower, tickUpper, liquidity);
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), liquidity);
+        lpm.modifyPosition(
+            address(this),
+            poolKey,
+            IPoolManager.ModifyPositionParams({
+                tickLower: tickLower,
+                tickUpper: tickUpper,
+                liquidityDelta: -int256(liquidity)
+            }),
+            ZERO_BYTES
+        );
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), 0);
     }
+
     function test_removePartialLiquidity() public {}
     function test_addPartialLiquidity() public {}
 
