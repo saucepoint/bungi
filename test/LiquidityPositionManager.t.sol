@@ -81,8 +81,31 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         assertEq(lpm.balanceOf(address(this), position.toTokenId()), 0);
     }
 
-    function test_removePartialLiquidity() public {}
-    function test_addPartialLiquidity() public {}
+    function test_removePartialLiquidity() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        uint256 liquidity = 1e18;
+        addLiquidity(poolKey, tickLower, tickUpper, liquidity);
+
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        uint256 balanceBefore = lpm.balanceOf(address(this), position.toTokenId());
+        removeLiquidity(poolKey, tickLower, tickUpper, liquidity / 2); // remove half of the position
+
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), balanceBefore / 2);
+    }
+
+    function test_addPartialLiquidity() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        uint256 liquidity = 1e18;
+        addLiquidity(poolKey, tickLower, tickUpper, liquidity);
+
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        uint256 balanceBefore = lpm.balanceOf(address(this), position.toTokenId());
+        addLiquidity(poolKey, tickLower, tickUpper, liquidity / 2); // add half of the position
+
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), balanceBefore + liquidity / 2);
+    }
 
     function test_expandLiquidity() public {
         int24 tickLower = -600;
@@ -124,6 +147,19 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: int256(liquidity)
+            }),
+            ZERO_BYTES
+        );
+    }
+
+    function removeLiquidity(PoolKey memory key, int24 tickLower, int24 tickUpper, uint256 liquidity) internal {
+        lpm.modifyPosition(
+            address(this),
+            key,
+            IPoolManager.ModifyPositionParams({
+                tickLower: tickLower,
+                tickUpper: tickUpper,
+                liquidityDelta: -int256(liquidity)
             }),
             ZERO_BYTES
         );
