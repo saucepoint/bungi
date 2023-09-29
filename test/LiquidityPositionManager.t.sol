@@ -120,6 +120,8 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         int24 newTickLower = -1200;
         int24 newTickUpper = 1200;
 
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), uint256(liquidity));
+
         uint128 newLiquidity = helper.getNewLiquidity(position, -liquidity, newTickLower, newTickUpper);
         lpm.rebalancePosition(
             address(this),
@@ -137,6 +139,13 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         // new liquidity position did not require net-new tokens
         assertEq(token0.balanceOf(address(this)), balance0Before);
         assertEq(token1.balanceOf(address(this)), balance1Before);
+
+        // old position was unwound entirely
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), 0);
+
+        // new position was created
+        Position memory newPosition = Position({poolKey: poolKey, tickLower: newTickLower, tickUpper: newTickUpper});
+        assertEq(lpm.balanceOf(address(this), newPosition.toTokenId()), uint256(newLiquidity));
     }
 
     function addLiquidity(PoolKey memory key, int24 tickLower, int24 tickUpper, uint256 liquidity) internal {

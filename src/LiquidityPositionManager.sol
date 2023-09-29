@@ -62,6 +62,10 @@ contract LiquidityPositionManager is ERC6909 {
         );
 
         // adjust 6909 balances
+        _burn(owner, position.toTokenId(), uint256(-existingLiquidityDelta));
+        uint256 newPositionTokenId =
+            Position({poolKey: position.poolKey, tickLower: params.tickLower, tickUpper: params.tickUpper}).toTokenId();
+        _mint(owner, newPositionTokenId, uint256(params.liquidityDelta));
 
         uint256 ethBalance = address(this).balance;
         if (ethBalance > 0) {
