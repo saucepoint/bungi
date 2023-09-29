@@ -54,10 +54,6 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
             }),
             ZERO_BYTES
         );
-
-        int24 newTickLower = -1200;
-        int24 newTickUpper = 1200;
-        getNewLiquidity(tickLower, tickUpper, newTickLower, newTickUpper);
     }
 
     function test_removeFullLiquidity() public {}
@@ -76,7 +72,8 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
 
         int24 newTickLower = -1200;
         int24 newTickUpper = 1200;
-        uint128 newLiquidity = getNewLiquidity(tickLower, tickUpper, newTickLower, newTickUpper);
+
+        uint128 newLiquidity = lpm.getNewLiquidity(position, -liquidity, newTickLower, newTickUpper);
         lpm.modifyExistingPosition(
             address(this),
             position,
@@ -105,31 +102,6 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
                 liquidityDelta: int256(liquidity)
             }),
             ZERO_BYTES
-        );
-    }
-
-    function getNewLiquidity(int24 currentTickLower, int24 currentTickUpper, int24 newTickLower, int24 newTickUpper)
-        internal
-        view
-        returns (uint128 newLiquidity)
-    {
-        // TODO: add view function to LPM
-        PoolPosition.Info memory position =
-            manager.getPosition(poolId, address(lpm), currentTickLower, currentTickUpper);
-        (uint160 sqrtPriceX96,,,,,) = manager.getSlot0(poolId);
-        (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
-            sqrtPriceX96,
-            TickMath.getSqrtRatioAtTick(currentTickLower),
-            TickMath.getSqrtRatioAtTick(currentTickUpper),
-            position.liquidity
-        );
-
-        newLiquidity = LiquidityAmounts.getLiquidityForAmounts(
-            sqrtPriceX96,
-            TickMath.getSqrtRatioAtTick(newTickLower),
-            TickMath.getSqrtRatioAtTick(newTickUpper),
-            amount0,
-            amount1
         );
     }
 }

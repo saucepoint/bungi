@@ -13,6 +13,9 @@ import {CurrencyLibrary, Currency} from "@uniswap/v4-core/contracts/types/Curren
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {Position, PositionId, PositionIdLibrary} from "./types/PositionId.sol";
 import {Position as PoolPosition} from "@uniswap/v4-core/contracts/libraries/Position.sol";
+import {LiquidityAmounts} from "v4-periphery/libraries/LiquidityAmounts.sol";
+import {TickMath} from "@uniswap/v4-core/contracts/libraries/TickMath.sol";
+import {Position as PoolPosition} from "@uniswap/v4-core/contracts/libraries/Position.sol";
 
 contract LiquidityPositionManager is ERC6909 {
     using CurrencyLibrary for Currency;
@@ -188,7 +191,63 @@ contract LiquidityPositionManager is ERC6909 {
         }
     }
 
-    // --- ERC-6909 ---
+    // -- Helper View Functions for Client and Tests -- //
+
+    /// @notice Given an existing LP, and a new desired
+    function getNewLiquidity(
+        Position calldata position,
+        int256 existingLiquidityDelta,
+        int24 newTickLower,
+        int24 newTickUpper
+    ) external view returns (uint128 newLiquidity) {
+        require(existingLiquidityDelta < 0, "must withdraw from old liquidity");
+
+        (uint160 sqrtPriceX96, uint256 amount0, uint256 amount1) =
+            _getAmountsAfterLiquidityChange(position, existingLiquidityDelta);
+
+        newLiquidity = LiquidityAmounts.getLiquidityForAmounts(
+            sqrtPriceX96,
+            TickMath.getSqrtRatioAtTick(newTickLower),
+            TickMath.getSqrtRatioAtTick(newTickUpper),
+            amount0,
+            amount1
+        );
+    }
+
+    function _getAmountsAfterLiquidityChange(Position calldata position, int256 existingLiquidityDelta)
+        internal
+        view
+        returns (uint160 sqrtPriceX96, uint256 amount0, uint256 amount1)
+    {
+        PoolId poolId = position.poolKey.toId();
+        (sqrtPriceX96,,,,,) = manager.getSlot0(poolId);
+
+        // TODO: read the liquidity of the owner, not the LPM contract
+        uint128 currentLiquidity =
+            manager.getPosition(poolId, address(this), position.tickLower, position.tickUpper).liquidity;
+        int256 liquidityChange = int256(uint256(currentLiquidity)) + existingLiquidityDelta;
+
+        // amounts before the change
+        (uint256 amount0Before, uint256 amount1Before) = LiquidityAmounts.getAmountsForLiquidity(
+            sqrtPriceX96,
+            TickMath.getSqrtRatioAtTick(position.tickLower),
+            TickMath.getSqrtRatioAtTick(position.tickUpper),
+            currentLiquidity
+        );
+
+        // amounts after the change
+        (uint256 amount0After, uint256 amount1After) = LiquidityAmounts.getAmountsForLiquidity(
+            sqrtPriceX96,
+            TickMath.getSqrtRatioAtTick(position.tickLower),
+            TickMath.getSqrtRatioAtTick(position.tickUpper),
+            uint128(uint256(liquidityChange))
+        );
+
+        amount0 = amount0Before - amount0After;
+        amount1 = amount1Before - amount1After;
+    }
+
+    // --- ERC-6909 --- //
     function _mint(address owner, uint256 tokenId, uint256 amount) internal {
         balanceOf[owner][tokenId] += amount;
         emit Transfer(msg.sender, address(this), owner, tokenId, amount);
