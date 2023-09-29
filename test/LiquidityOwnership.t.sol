@@ -149,4 +149,99 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
     }
 
     // with operator set, bob can add to alice's position
+    function test_operatorRemove() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        uint256 liquidity = 1e18;
+
+        vm.prank(alice);
+        lpm.modifyPosition(
+            alice, // alice, the owner
+            poolKey,
+            IPoolManager.ModifyPositionParams({
+                tickLower: tickLower,
+                tickUpper: tickUpper,
+                liquidityDelta: int256(liquidity)
+            }),
+            ZERO_BYTES
+        );
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        assertEq(lpm.balanceOf(alice, position.toTokenId()), liquidity);
+
+        // alice allows bob as an operator
+        vm.prank(alice);
+        lpm.setOperator(bob, true);
+
+        vm.startPrank(bob);
+        lpm.modifyPosition(
+            alice, // bob has operator permissions to close alice's LP
+            poolKey,
+            IPoolManager.ModifyPositionParams({
+                tickLower: tickLower,
+                tickUpper: tickUpper,
+                liquidityDelta: -int256(liquidity)
+            }),
+            ZERO_BYTES
+        );
+        vm.stopPrank();
+
+        // alice's LP is closed
+        assertEq(lpm.balanceOf(alice, position.toTokenId()), 0);
+
+        // TODO: alice receives the underlying tokens
+    }
+
+    // with operator set, bob can add to alice's position
+    function test_operatorRebalance() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        uint256 liquidity = 1e18;
+
+        vm.prank(alice);
+        lpm.modifyPosition(
+            alice, // alice, the owner
+            poolKey,
+            IPoolManager.ModifyPositionParams({
+                tickLower: tickLower,
+                tickUpper: tickUpper,
+                liquidityDelta: int256(liquidity)
+            }),
+            ZERO_BYTES
+        );
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        assertEq(lpm.balanceOf(alice, position.toTokenId()), liquidity);
+
+        // alice allows bob as an operator
+        vm.prank(alice);
+        lpm.setOperator(bob, true);
+
+        vm.startPrank(bob);
+        int24 newTickLower = -1200;
+        int24 newTickUpper = 1200;
+        uint128 newLiquidity = helper.getNewLiquidity(position, -int256(liquidity), newTickLower, newTickUpper);
+        lpm.rebalancePosition(
+            alice, // bob has permission to rebalance for alice
+            position,
+            -int256(liquidity), // fully unwind
+            IPoolManager.ModifyPositionParams({
+                tickLower: newTickLower,
+                tickUpper: newTickUpper,
+                liquidityDelta: int256(uint256(newLiquidity))
+            }),
+            ZERO_BYTES,
+            ZERO_BYTES
+        );
+        vm.stopPrank();
+
+        // alice's old LP is closed
+        assertEq(lpm.balanceOf(alice, position.toTokenId()), 0);
+
+        // alice has a new LP
+        assertEq(
+            lpm.balanceOf(
+                alice, Position({poolKey: poolKey, tickLower: newTickLower, tickUpper: newTickUpper}).toTokenId()
+            ),
+            newLiquidity
+        );
+    }
 }
