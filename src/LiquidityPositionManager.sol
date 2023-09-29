@@ -94,63 +94,14 @@ contract LiquidityPositionManager is ERC6909 {
 
         delta = deltaBurn + deltaMint;
 
-        if (delta.amount0() > 0) {
-            if (key.currency0.isNative()) {
-                manager.settle{value: uint128(delta.amount0())}(key.currency0);
-            } else {
-                IERC20(Currency.unwrap(key.currency0)).transferFrom(sender, address(manager), uint128(delta.amount0()));
-                manager.settle(key.currency0);
-            }
-        }
-        if (delta.amount1() > 0) {
-            if (key.currency1.isNative()) {
-                manager.settle{value: uint128(delta.amount1())}(key.currency1);
-            } else {
-                IERC20(Currency.unwrap(key.currency1)).transferFrom(sender, address(manager), uint128(delta.amount1()));
-                manager.settle(key.currency1);
-            }
-        }
-
-        if (delta.amount0() < 0) {
-            manager.take(key.currency0, sender, uint128(-delta.amount0()));
-        }
-        if (delta.amount1() < 0) {
-            manager.take(key.currency1, sender, uint128(-delta.amount1()));
-        }
+        processBalanceDelta(sender, key.currency0, key.currency1, delta);
     }
 
     function handleModifyPosition(bytes memory rawData) external returns (BalanceDelta delta) {
         CallbackData memory data = abi.decode(rawData, (CallbackData));
 
         delta = manager.modifyPosition(data.key, data.params, data.hookData);
-
-        if (delta.amount0() > 0) {
-            if (data.key.currency0.isNative()) {
-                manager.settle{value: uint128(delta.amount0())}(data.key.currency0);
-            } else {
-                IERC20(Currency.unwrap(data.key.currency0)).transferFrom(
-                    data.sender, address(manager), uint128(delta.amount0())
-                );
-                manager.settle(data.key.currency0);
-            }
-        }
-        if (delta.amount1() > 0) {
-            if (data.key.currency1.isNative()) {
-                manager.settle{value: uint128(delta.amount1())}(data.key.currency1);
-            } else {
-                IERC20(Currency.unwrap(data.key.currency1)).transferFrom(
-                    data.sender, address(manager), uint128(delta.amount1())
-                );
-                manager.settle(data.key.currency1);
-            }
-        }
-
-        if (delta.amount0() < 0) {
-            manager.take(data.key.currency0, data.sender, uint128(-delta.amount0()));
-        }
-        if (delta.amount1() < 0) {
-            manager.take(data.key.currency1, data.sender, uint128(-delta.amount1()));
-        }
+        processBalanceDelta(data.sender, data.key.currency0, data.key.currency1, delta);
     }
 
     function modifyPosition(
@@ -195,6 +146,32 @@ contract LiquidityPositionManager is ERC6909 {
         /// @solidity memory-safe-assembly
         assembly {
             revert(add(returnData, 32), mload(returnData))
+        }
+    }
+
+    function processBalanceDelta(address sender, Currency currency0, Currency currency1, BalanceDelta delta) internal {
+        if (delta.amount0() > 0) {
+            if (currency0.isNative()) {
+                manager.settle{value: uint128(delta.amount0())}(currency0);
+            } else {
+                IERC20(Currency.unwrap(currency0)).transferFrom(sender, address(manager), uint128(delta.amount0()));
+                manager.settle(currency0);
+            }
+        }
+        if (delta.amount1() > 0) {
+            if (currency1.isNative()) {
+                manager.settle{value: uint128(delta.amount1())}(currency1);
+            } else {
+                IERC20(Currency.unwrap(currency1)).transferFrom(sender, address(manager), uint128(delta.amount1()));
+                manager.settle(currency1);
+            }
+        }
+
+        if (delta.amount0() < 0) {
+            manager.take(currency0, sender, uint128(-delta.amount0()));
+        }
+        if (delta.amount1() < 0) {
+            manager.take(currency1, sender, uint128(-delta.amount1()));
         }
     }
 
