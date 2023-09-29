@@ -13,6 +13,8 @@ import {CurrencyLibrary, Currency} from "@uniswap/v4-core/contracts/types/Curren
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {Position, PositionId, PositionIdLibrary} from "./types/PositionId.sol";
 import {Position as PoolPosition} from "@uniswap/v4-core/contracts/libraries/Position.sol";
+import {LiquidityAmounts} from "v4-periphery/libraries/LiquidityAmounts.sol";
+import {TickMath} from "@uniswap/v4-core/contracts/libraries/TickMath.sol";
 
 contract LiquidityPositionManager is ERC6909 {
     using CurrencyLibrary for Currency;
@@ -36,18 +38,16 @@ contract LiquidityPositionManager is ERC6909 {
     function modifyExistingPosition(
         address owner,
         Position memory position,
+        int256 existingLiquidityDelta,
         IPoolManager.ModifyPositionParams memory params,
         bytes calldata hookDataOnBurn,
         bytes calldata hookDataOnMint
     ) external {
-        uint256 liquidity = balanceOf[owner][position.toTokenId()];
-        params.liquidityDelta += int256(liquidity);
-
         BalanceDelta delta = abi.decode(
             manager.lock(
                 abi.encodeCall(
                     this.handleModifyExistingPosition,
-                    (msg.sender, owner, position, params, hookDataOnBurn, hookDataOnMint)
+                    (msg.sender, owner, position, existingLiquidityDelta, params, hookDataOnBurn, hookDataOnMint)
                 )
             ),
             (BalanceDelta)
@@ -65,6 +65,7 @@ contract LiquidityPositionManager is ERC6909 {
         address sender,
         address owner,
         Position memory position,
+        int256 existingLiquidityDelta,
         IPoolManager.ModifyPositionParams memory params,
         bytes memory hookDataOnBurn,
         bytes memory hookDataOnMint
@@ -77,22 +78,13 @@ contract LiquidityPositionManager is ERC6909 {
             IPoolManager.ModifyPositionParams({
                 tickLower: position.tickLower,
                 tickUpper: position.tickUpper,
-                liquidityDelta: -params.liquidityDelta
+                liquidityDelta: existingLiquidityDelta
             }),
             hookDataOnBurn
         );
-        params.liquidityDelta = params.liquidityDelta / 2;
         BalanceDelta deltaMint = manager.modifyPosition(key, params, hookDataOnMint);
 
-        console2.log("Burn0", deltaBurn.amount0());
-        console2.log("Burn1", deltaBurn.amount1());
-        console2.log("Mint0", deltaMint.amount0());
-        console2.log("Mint1", deltaMint.amount1());
-
         delta = deltaBurn + deltaMint;
-
-        console2.log("Delta0", delta.amount0());
-        console2.log("Delta1", delta.amount1());
 
         if (delta.amount0() > 0) {
             if (key.currency0.isNative()) {
@@ -198,7 +190,7 @@ contract LiquidityPositionManager is ERC6909 {
         }
     }
 
-    // --- ERC-6909 ---
+    // --- ERC-6909 --- //
     function _mint(address owner, uint256 tokenId, uint256 amount) internal {
         balanceOf[owner][tokenId] += amount;
         emit Transfer(msg.sender, address(this), owner, tokenId, amount);
