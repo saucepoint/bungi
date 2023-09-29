@@ -54,7 +54,7 @@ contract LiquidityPositionManager is ERC6909 {
         delta = abi.decode(
             manager.lock(
                 abi.encodeCall(
-                    this.handleModifyExistingPosition,
+                    this.handleRebalancePosition,
                     (msg.sender, owner, position, existingLiquidityDelta, params, hookDataOnBurn, hookDataOnMint)
                 )
             ),
@@ -69,7 +69,7 @@ contract LiquidityPositionManager is ERC6909 {
         }
     }
 
-    function handleModifyExistingPosition(
+    function handleRebalancePosition(
         address sender,
         address owner,
         Position memory position,
