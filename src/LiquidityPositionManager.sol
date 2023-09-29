@@ -51,6 +51,7 @@ contract LiquidityPositionManager is ERC6909 {
         bytes calldata hookDataOnBurn,
         bytes calldata hookDataOnMint
     ) external returns (BalanceDelta delta) {
+        if (!(msg.sender == owner || isOperator[owner][msg.sender])) revert InsufficientPermission();
         delta = abi.decode(
             manager.lock(
                 abi.encodeCall(
@@ -114,6 +115,7 @@ contract LiquidityPositionManager is ERC6909 {
         IPoolManager.ModifyPositionParams memory params,
         bytes calldata hookData
     ) external returns (BalanceDelta delta) {
+        if (!(msg.sender == owner || isOperator[owner][msg.sender])) revert InsufficientPermission();
         delta = abi.decode(
             manager.lock(
                 abi.encodeCall(
