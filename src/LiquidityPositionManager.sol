@@ -115,7 +115,20 @@ contract LiquidityPositionManager is ERC6909 {
         IPoolManager.ModifyPositionParams memory params,
         bytes calldata hookData
     ) external returns (BalanceDelta delta) {
-        if (!(msg.sender == owner || isOperator[owner][msg.sender])) revert InsufficientPermission();
+        // checks & effects
+        uint256 tokenId = Position({poolKey: key, tickLower: params.tickLower, tickUpper: params.tickUpper}).toTokenId();
+        if (params.liquidityDelta < 0) {
+            // only the operator or owner can burn
+            if (!(msg.sender == owner || isOperator[owner][msg.sender])) revert InsufficientPermission();
+            _burn(owner, tokenId, uint256(-params.liquidityDelta));
+        } else {
+            // allow anyone to mint to a destination address
+            // TODO: guarantee that k is less than int256 max
+            // TODO: proper book keeping to avoid double-counting
+            _mint(owner, tokenId, uint256(params.liquidityDelta));
+        }
+
+        // interactions
         delta = abi.decode(
             manager.lock(
                 abi.encodeCall(
@@ -124,17 +137,6 @@ contract LiquidityPositionManager is ERC6909 {
             ),
             (BalanceDelta)
         );
-
-        uint256 tokenId = Position({poolKey: key, tickLower: params.tickLower, tickUpper: params.tickUpper}).toTokenId();
-
-        // burn 6909
-        if (params.liquidityDelta < 0) {
-            _burn(owner, tokenId, uint256(-params.liquidityDelta));
-        } else {
-            // TODO: guarantee that k is less than int256 max
-            // TODO: proper book keeping to avoid double-counting
-            _mint(owner, tokenId, uint256(params.liquidityDelta));
-        }
 
         uint256 ethBalance = address(this).balance;
         if (ethBalance > 0) {

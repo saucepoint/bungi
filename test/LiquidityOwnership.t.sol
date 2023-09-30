@@ -62,10 +62,72 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
     }
 
     // bob *can* create a position for alice
-    function test_recipientAdd() public {}
+    function test_recipientAdd() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        uint256 liquidity = 1e18;
 
-    // bob cannot add to alice's position
-    function test_ownershipReadd() public {}
+        uint256 token0Alice = token0.balanceOf(alice);
+        uint256 token1Alice = token1.balanceOf(alice);
+        vm.prank(bob);
+        lpm.modifyPosition(
+            alice, // alice, the owner
+            poolKey,
+            IPoolManager.ModifyPositionParams({
+                tickLower: tickLower,
+                tickUpper: tickUpper,
+                liquidityDelta: int256(liquidity)
+            }),
+            ZERO_BYTES
+        );
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        assertEq(lpm.balanceOf(alice, position.toTokenId()), liquidity);
+
+        // bob paid for the LP, on behalf of alice
+        assertEq(token0.balanceOf(alice), token0Alice);
+        assertEq(token1.balanceOf(alice), token1Alice);
+    }
+
+    // bob can add to alice's position
+    function test_recipientReadd() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        uint256 liquidity = 1e18;
+
+        uint256 token0Alice = token0.balanceOf(alice);
+        uint256 token1Alice = token1.balanceOf(alice);
+        vm.prank(bob);
+        lpm.modifyPosition(
+            alice, // alice, the owner
+            poolKey,
+            IPoolManager.ModifyPositionParams({
+                tickLower: tickLower,
+                tickUpper: tickUpper,
+                liquidityDelta: int256(liquidity)
+            }),
+            ZERO_BYTES
+        );
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        assertEq(lpm.balanceOf(alice, position.toTokenId()), liquidity);
+
+        // readd to the liquidity
+        vm.prank(bob);
+        lpm.modifyPosition(
+            alice, // alice, the owner
+            poolKey,
+            IPoolManager.ModifyPositionParams({
+                tickLower: tickLower,
+                tickUpper: tickUpper,
+                liquidityDelta: int256(liquidity)
+            }),
+            ZERO_BYTES
+        );
+        assertEq(lpm.balanceOf(alice, position.toTokenId()), liquidity * 2);
+
+        // bob paid for the LP, on behalf of alice
+        assertEq(token0.balanceOf(alice), token0Alice);
+        assertEq(token1.balanceOf(alice), token1Alice);
+    }
 
     // bob cannot remove from alice's position
     function test_ownershipRemove() public {
