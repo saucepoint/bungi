@@ -16,7 +16,7 @@ import {TickMath} from "@uniswap/v4-core/contracts/libraries/TickMath.sol";
 import {Position as PoolPosition} from "@uniswap/v4-core/contracts/libraries/Position.sol";
 import {LiquidityHelpers} from "../src/lens/LiquidityHelpers.sol";
 
-contract LiquidityPositionManagerTest is HookTest, Deployers {
+contract LiquidityOwnershipTest is HookTest, Deployers {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
     using PositionIdLibrary for Position;

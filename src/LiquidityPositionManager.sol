@@ -99,14 +99,14 @@ contract LiquidityPositionManager is ERC6909 {
 
         delta = deltaBurn + deltaMint;
 
-        processBalanceDelta(sender, key.currency0, key.currency1, delta);
+        processBalanceDelta(sender, owner, key.currency0, key.currency1, delta);
     }
 
     function handleModifyPosition(bytes memory rawData) external returns (BalanceDelta delta) {
         CallbackData memory data = abi.decode(rawData, (CallbackData));
 
         delta = manager.modifyPosition(data.key, data.params, data.hookData);
-        processBalanceDelta(data.sender, data.key.currency0, data.key.currency1, delta);
+        processBalanceDelta(data.sender, data.owner, data.key.currency0, data.key.currency1, delta);
     }
 
     function modifyPosition(
@@ -140,7 +140,7 @@ contract LiquidityPositionManager is ERC6909 {
 
         uint256 ethBalance = address(this).balance;
         if (ethBalance > 0) {
-            CurrencyLibrary.NATIVE.transfer(msg.sender, ethBalance);
+            CurrencyLibrary.NATIVE.transfer(owner, ethBalance);
         }
     }
 
@@ -157,7 +157,13 @@ contract LiquidityPositionManager is ERC6909 {
         }
     }
 
-    function processBalanceDelta(address sender, Currency currency0, Currency currency1, BalanceDelta delta) internal {
+    function processBalanceDelta(
+        address sender,
+        address recipient,
+        Currency currency0,
+        Currency currency1,
+        BalanceDelta delta
+    ) internal {
         if (delta.amount0() > 0) {
             if (currency0.isNative()) {
                 manager.settle{value: uint128(delta.amount0())}(currency0);
@@ -176,10 +182,10 @@ contract LiquidityPositionManager is ERC6909 {
         }
 
         if (delta.amount0() < 0) {
-            manager.take(currency0, sender, uint128(-delta.amount0()));
+            manager.take(currency0, recipient, uint128(-delta.amount0()));
         }
         if (delta.amount1() < 0) {
-            manager.take(currency1, sender, uint128(-delta.amount1()));
+            manager.take(currency1, recipient, uint128(-delta.amount1()));
         }
     }
 
