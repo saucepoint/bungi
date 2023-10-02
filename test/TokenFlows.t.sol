@@ -138,10 +138,84 @@ contract TokenFlowsTest is HookTest, Deployers {
     }
 
     // alice rebalances her position, excess tokens are received as 1155
-    function test_rebalanceTokenRecipient() public {}
+    function test_rebalanceTokenRecipient() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        uint256 liquidity = 1e18;
+
+        // alice adds liquidity
+        vm.prank(alice);
+        addLiquidity(alice, poolKey, tickLower, tickUpper, liquidity);
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        assertEq(lpm.balanceOf(address(alice), position.toTokenId()), liquidity);
+
+        uint256 token0BalanceBefore = token0.balanceOf(address(alice));
+        uint256 token1BalanceBefore = token1.balanceOf(address(alice));
+
+        // alice rebalances liquidity
+        int24 newTickLower = -1200;
+        int24 newTickUpper = 1200;
+        int256 liquidityAdjustment = -int256(liquidity / 2);
+        uint128 newLiquidity = helper.getNewLiquidity(position, liquidityAdjustment, newTickLower, newTickUpper);
+        vm.prank(alice);
+        lpm.rebalancePosition(
+            alice,
+            position,
+            liquidityAdjustment, // partially unwind
+            IPoolManager.ModifyPositionParams({
+                tickLower: newTickLower,
+                tickUpper: newTickUpper,
+                liquidityDelta: int256(uint256(newLiquidity) / 2)
+            }),
+            ZERO_BYTES,
+            ZERO_BYTES
+        );
+
+        // alice gets excess tokens back
+        assertGt(token0.balanceOf(address(alice)), token0BalanceBefore);
+        assertGt(token1.balanceOf(address(alice)), token1BalanceBefore);
+    }
 
     // bob rebalances alice position, alice gets the excess tokens
-    function test_operatorRebalanceTokenRecipient() public {}
+    function test_operatorRebalanceTokenRecipient() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        uint256 liquidity = 1e18;
+
+        // alice adds liquidity
+        vm.startPrank(alice);
+        addLiquidity(alice, poolKey, tickLower, tickUpper, liquidity);
+        lpm.setOperator(bob, true);        
+        vm.stopPrank();
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        assertEq(lpm.balanceOf(address(alice), position.toTokenId()), liquidity);
+
+        uint256 token0BalanceBefore = token0.balanceOf(address(alice));
+        uint256 token1BalanceBefore = token1.balanceOf(address(alice));
+
+        // bob rebalances alice's liquidity
+        int24 newTickLower = -1200;
+        int24 newTickUpper = 1200;
+        int256 liquidityAdjustment = -int256(liquidity / 2);
+        uint128 newLiquidity = helper.getNewLiquidity(position, liquidityAdjustment, newTickLower, newTickUpper);
+        vm.prank(bob);
+        lpm.rebalancePosition(
+            alice,
+            position,
+            liquidityAdjustment, // partially unwind
+            IPoolManager.ModifyPositionParams({
+                tickLower: newTickLower,
+                tickUpper: newTickUpper,
+                liquidityDelta: int256(uint256(newLiquidity) / 2)
+            }),
+            ZERO_BYTES,
+            ZERO_BYTES
+        );
+
+        // alice gets excess tokens back
+        assertGt(token0.balanceOf(address(alice)), token0BalanceBefore);
+        assertGt(token1.balanceOf(address(alice)), token1BalanceBefore);
+    }
 
     function addLiquidity(address recipient, PoolKey memory key, int24 tickLower, int24 tickUpper, uint256 liquidity)
         internal
