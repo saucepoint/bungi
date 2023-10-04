@@ -12,13 +12,13 @@ forge install saucepoint/bungi
 
 # Features
 
-Until Uniswap Labs provides a canonical liquidity position manager (i.e. v3's equivalent `NonfungiblePositionManager`), there was a growing need for a more advanced LP router over [PoolModifyPositionTest]
+Until Uniswap Labs releases a canonical LP router (equivalent to v3's [NonfungiblePositionManager](https://github.com/Uniswap/v3-periphery/blob/main/contracts/NonfungiblePositionManager.sol)), there was a growing need for **an advanced LP router** with more features than the baseline [PoolModifyPositionTest](https://github.com/Uniswap/v4-core/blob/main/contracts/test/PoolModifyPositionTest.sol)
 
 
-🅱️ungi's liquidity position manager (LPM) supports:
+## 🅱️ungi's liquidity position manager (LPM) supports:
 
 
-- [x] Semi-fungible LP tokens ([ERC-6909])
+- [x] Semi-fungible LP tokens ([ERC-6909](https://github.com/jtriley-eth/ERC-6909)
 
 - [x] Gas efficient rebalancing. Completely (or partially) move assets from an existing position into a new range
 
@@ -132,7 +132,7 @@ Rebalance Liquidity
 
 Additional resources:
 
-[v4-periphery](https://github.com/uniswap/v4-periphery) contains advanced hook implementations that serve as a great reference
+[v4-periphery](https://github.com/uniswap/v4-periphery)
 
 [v4-core](https://github.com/uniswap/v4-core)
 
