@@ -18,7 +18,7 @@ Until Uniswap Labs releases a canonical LP router (equivalent to v3's [Nonfungib
 ## 🅱️ungi's liquidity position manager (LPM) supports:
 
 
-- [x] Semi-fungible LP tokens ([ERC-6909](https://github.com/jtriley-eth/ERC-6909)
+- [x] Semi-fungible LP tokens ([ERC-6909](https://github.com/jtriley-eth/ERC-6909))
 
 - [x] Gas efficient rebalancing. Completely (or partially) move assets from an existing position into a new range
 
