@@ -1,35 +1,132 @@
-# v4-template
-### **A template for writing Uniswap v4 Hooks 🦄**
+# 🅱️ungi
+### **An experimental Liquidity Position Manager for Uniswap v4 🦄**
 
-[`Use this Template`](https://github.com/saucepoint/v4-template/generate)
+> The codebase is tested on happy paths only. This should not be used in any production capacity
 
-1. The example hook [Counter.sol](src/Counter.sol) demonstrates the `beforeSwap()` and `afterSwap()` hooks
-2. The test template [Counter.t.sol](test/Counter.t.sol) preconfigures the v4 pool manager, test tokens, and test liquidity.
+Add it to your project
+```bash
+forge install saucepoint/bungi
+```
 
 ---
 
-### Local Development (Anvil)
+# Features
 
-*requires [foundry](https://book.getfoundry.sh)*
+Until Uniswap Labs provides a canonical liquidity position manager (i.e. v3's equivalent `NonfungiblePositionManager`), there was a growing need for a more advanced LP router over [PoolModifyPositionTest]
+
+
+🅱️ungi's liquidity position manager (LPM) supports:
+
+
+- [x] Semi-fungible LP tokens ([ERC-6909])
+
+- [x] Gas efficient rebalancing. Completely (or partially) move assets from an existing position into a new range
+
+- [x] Permissioned operators and managers. Delegate to a trusted party to manage your liquidity positions
+    - **Allow a hook to modify and adjust your position(s)!**
+
+- [ ] Fee accounting and collection (TODO)
+
+- [ ] Swap-n-add (TODO)
+
+- [ ] Fuzz testing (TODO)
+
+
+---
+
+# Usage
+
+Deploy for tests
+
+```solidity
+// -- snip --
+// (other imports)
+
+import {Position, PositionId, PositionIdLibrary} from "bungi/src/types/PositionId.sol";
+import {LiquidityPositionManager} from "bungi/src/LiquidityPositionManager.sol";
+
+contract CounterTest is Test {
+    using PositionIdLibrary for Position;
+    LiquidityPositionManager lpm;
+
+    function setUp() public {
+        // -- snip --
+        // (deploy v4 PoolManager)
+
+        lpm = new LiquidityPositionManager(IPoolManager(address(manager)));
+    }
+}
 
 ```
-forge install
-forge test
+
+Add Liquidity
+```solidity
+    // Mint 1e18 worth of liquidity on range [-600, 600]
+    int24 tickLower = -600;
+    int24 tickUpper = 600;
+    uint256 liquidity = 1e18;
+    
+    lpm.modifyPosition(
+        address(this),
+        poolKey,
+        IPoolManager.ModifyPositionParams({
+            tickLower: tickLower,
+            tickUpper: tickUpper,
+            liquidityDelta: int256(liquidity)
+        }),
+        ZERO_BYTES
+    );
+
+    // recieved 1e18 LP tokens (6909)
+    Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+    assertEq(lpm.balanceOf(address(this), position.toTokenId()), liquidity);
 ```
 
-Because v4 exceeds the bytecode limit of Ethereum and it's *business licensed*, we can only deploy & test hooks on [anvil](https://book.getfoundry.sh/anvil/).
+Remove Liquidity
+```solidity
+    // assume liquidity has been provisioned
+    int24 tickLower = -600;
+    int24 tickUpper = 600;
+    uint256 liquidity = 1e18;
 
-```bash
-# start anvil, with a larger code limit
-anvil --code-size-limit 30000
-
-# in a new terminal
-forge script script/Counter.s.sol \
-    --rpc-url http://localhost:8545 \
-    --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-    --code-size-limit 30000 \
-    --broadcast
+    // remove all liquidity
+    lpm.modifyPosition(
+        address(this),
+        poolKey,
+        IPoolManager.ModifyPositionParams({
+            tickLower: tickLower,
+            tickUpper: tickUpper,
+            liquidityDelta: -int256(liquidity)
+        }),
+        ZERO_BYTES
+    );
 ```
+
+Rebalance Liquidity
+```solidity
+    // lens-style contract to help with liquidity math
+    LiquidityHelpers helper = new LiquidityHelpers(IPoolManager(address(manager)), lpm);
+
+    // assume existing position has liquidity already provisioned
+    Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+
+    // removing all `liquidity`` from an existing position and moving it into a new range
+    uint128 newLiquidity = helper.getNewLiquidity(position, -liquidity, newTickLower, newTickUpper);
+    lpm.rebalancePosition(
+        address(this),
+        position,
+        -liquidity, // fully unwind
+        IPoolManager.ModifyPositionParams({
+            tickLower: newTickLower,
+            tickUpper: newTickUpper,
+            liquidityDelta: int256(uint256(newLiquidity))
+        }),
+        ZERO_BYTES,
+        ZERO_BYTES
+    );
+```
+
+
 
 ---
 

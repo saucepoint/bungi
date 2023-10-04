@@ -11,7 +11,6 @@ import {Deployers} from "@uniswap/v4-core/test/foundry-tests/utils/Deployers.sol
 import {CurrencyLibrary, Currency} from "@uniswap/v4-core/contracts/types/Currency.sol";
 import {IHooks} from "@uniswap/v4-core/contracts/interfaces/IHooks.sol";
 import {Position, PositionId, PositionIdLibrary} from "../src/types/PositionId.sol";
-import {LiquidityAmounts} from "v4-periphery/libraries/LiquidityAmounts.sol";
 import {TickMath} from "@uniswap/v4-core/contracts/libraries/TickMath.sol";
 import {Position as PoolPosition} from "@uniswap/v4-core/contracts/libraries/Position.sol";
 import {LiquidityHelpers} from "../src/lens/LiquidityHelpers.sol";

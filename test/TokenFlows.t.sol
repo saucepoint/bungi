@@ -185,7 +185,7 @@ contract TokenFlowsTest is HookTest, Deployers {
         // alice adds liquidity
         vm.startPrank(alice);
         addLiquidity(alice, poolKey, tickLower, tickUpper, liquidity);
-        lpm.setOperator(bob, true);        
+        lpm.setOperator(bob, true);
         vm.stopPrank();
         Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
         assertEq(lpm.balanceOf(address(alice), position.toTokenId()), liquidity);
