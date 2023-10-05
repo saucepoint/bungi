@@ -48,7 +48,7 @@ contract LiquidityHelpers {
         returns (uint160 sqrtPriceX96, uint256 amount0, uint256 amount1)
     {
         PoolId poolId = position.poolKey.toId();
-        (sqrtPriceX96,,,,,) = manager.getSlot0(poolId);
+        (sqrtPriceX96,,,) = manager.getSlot0(poolId);
 
         // TODO: read the liquidity of the owner, not the LPM contract
         uint128 currentLiquidity =
