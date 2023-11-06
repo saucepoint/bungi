@@ -144,6 +144,77 @@ contract LiquidityPositionManager is ERC6909 {
         }
     }
 
+    function migratePosition(
+        address owner,
+        Position calldata existingPosition,
+        PoolKey calldata newPoolKey,
+        bytes calldata hookDataOnBurn,
+        bytes calldata hookDataOnMint
+    ) external returns (BalanceDelta delta) {
+        if (!(msg.sender == owner || isOperator[owner][msg.sender])) revert InsufficientPermission();
+        delta = abi.decode(
+            manager.lock(
+                abi.encodeCall(
+                    this.handleMigratePosition,
+                    (msg.sender, owner, existingPosition, newPoolKey, hookDataOnBurn, hookDataOnMint)
+                )
+            ),
+            (BalanceDelta)
+        );
+
+        // adjust 6909 balances
+        // TODO: properly account for liquidityDelta
+        uint256 liquidityBalance = balanceOf[owner][existingPosition.toTokenId()];
+        _burn(owner, existingPosition.toTokenId(), liquidityBalance);
+        uint256 newPositionTokenId = Position({
+            poolKey: newPoolKey,
+            tickLower: existingPosition.tickLower,
+            tickUpper: existingPosition.tickUpper
+        }).toTokenId();
+        _mint(owner, newPositionTokenId, liquidityBalance);
+
+        uint256 ethBalance = address(this).balance;
+        if (ethBalance > 0) {
+            CurrencyLibrary.NATIVE.transfer(msg.sender, ethBalance);
+        }
+    }
+
+    function handleMigratePosition(
+        address sender,
+        address owner,
+        Position calldata existingPosition,
+        PoolKey calldata newPoolKey,
+        bytes calldata hookDataOnBurn,
+        bytes calldata hookDataOnMint
+    ) external returns (BalanceDelta delta) {
+        int256 liquidityDelta = int256(balanceOf[owner][existingPosition.toTokenId()]);
+        // unwind the old position
+        BalanceDelta deltaBurn = manager.modifyPosition(
+            existingPosition.poolKey,
+            IPoolManager.ModifyPositionParams({
+                tickLower: existingPosition.tickLower,
+                tickUpper: existingPosition.tickUpper,
+                liquidityDelta: -liquidityDelta
+            }),
+            hookDataOnBurn
+        );
+
+        // TODO: research how tick spacing changes impacts liquidity
+        BalanceDelta deltaMint = manager.modifyPosition(
+            newPoolKey,
+            IPoolManager.ModifyPositionParams({
+                tickLower: tickFloor(existingPosition.tickLower, newPoolKey.tickSpacing),
+                tickUpper: tickFloor(existingPosition.tickUpper, newPoolKey.tickSpacing),
+                liquidityDelta: liquidityDelta
+            }),
+            hookDataOnMint
+        );
+
+        delta = deltaBurn + deltaMint;
+
+        processBalanceDelta(sender, owner, newPoolKey.currency0, newPoolKey.currency1, delta);
+    }
+
     function lockAcquired(bytes calldata data) external returns (bytes memory) {
         require(msg.sender == address(manager));
 
@@ -198,5 +269,12 @@ contract LiquidityPositionManager is ERC6909 {
     function _burn(address owner, uint256 tokenId, uint256 amount) internal {
         balanceOf[owner][tokenId] -= amount;
         emit Transfer(msg.sender, owner, address(this), tokenId, amount);
+    }
+
+    // --- Utils --- //
+    function tickFloor(int24 tick, int24 tickSpacing) internal pure returns (int24) {
+        unchecked {
+            return (tick / tickSpacing) * tickSpacing;
+        }
     }
 }
