@@ -25,6 +25,7 @@ contract LiquidityOwnershipTest is HookTest, Deployers {
     LiquidityHelpers helper;
 
     PoolKey poolKey;
+    PoolKey poolKey2;
     PoolId poolId;
 
     address alice = makeAddr("ALICE");
@@ -44,6 +45,11 @@ contract LiquidityOwnershipTest is HookTest, Deployers {
             PoolKey(Currency.wrap(address(token0)), Currency.wrap(address(token1)), 3000, 60, IHooks(address(0x0)));
         poolId = poolKey.toId();
         manager.initialize(poolKey, SQRT_RATIO_1_1, ZERO_BYTES);
+
+        // Create a second pool
+        poolKey2 =
+            PoolKey(Currency.wrap(address(token0)), Currency.wrap(address(token1)), 5000, 60, IHooks(address(0x0)));
+        manager.initialize(poolKey2, SQRT_RATIO_1_1, ZERO_BYTES);
 
         token0.mint(alice, 1_000_000e18);
         token1.mint(alice, 1_000_000e18);
@@ -305,5 +311,81 @@ contract LiquidityOwnershipTest is HookTest, Deployers {
             ),
             newLiquidity
         );
+    }
+
+    function test_operatorMigrate() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        uint256 liquidity = 1e18;
+
+        vm.prank(alice);
+        lpm.modifyPosition(
+            alice, // alice, the owner
+            poolKey,
+            IPoolManager.ModifyPositionParams({
+                tickLower: tickLower,
+                tickUpper: tickUpper,
+                liquidityDelta: int256(liquidity)
+            }),
+            ZERO_BYTES
+        );
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        assertEq(lpm.balanceOf(alice, position.toTokenId()), liquidity);
+
+        // alice allows bob as an operator
+        vm.prank(alice);
+        lpm.setOperator(bob, true);
+
+        vm.prank(bob);
+        lpm.migratePosition(
+            alice, // bob has permission to migrate for alice
+            position,
+            poolKey2,
+            ZERO_BYTES,
+            ZERO_BYTES
+        );
+
+        // alice's old LP is closed
+        assertEq(lpm.balanceOf(alice, position.toTokenId()), 0);
+
+        // alice has a new LP
+        assertEq(
+            lpm.balanceOf(alice, Position({poolKey: poolKey2, tickLower: tickLower, tickUpper: tickUpper}).toTokenId()),
+            liquidity
+        );
+    }
+
+    function test_operatorMigrateRevert() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        uint256 liquidity = 1e18;
+
+        vm.prank(alice);
+        lpm.modifyPosition(
+            alice, // alice, the owner
+            poolKey,
+            IPoolManager.ModifyPositionParams({
+                tickLower: tickLower,
+                tickUpper: tickUpper,
+                liquidityDelta: int256(liquidity)
+            }),
+            ZERO_BYTES
+        );
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+        assertEq(lpm.balanceOf(alice, position.toTokenId()), liquidity);
+
+        vm.startPrank(bob);
+        vm.expectRevert();
+        lpm.migratePosition(
+            alice, // bob does NOT have permission to migrate for alice
+            position,
+            poolKey2,
+            ZERO_BYTES,
+            ZERO_BYTES
+        );
+        vm.stopPrank();
+
+        // alice's old LP is unchanged
+        assertEq(lpm.balanceOf(alice, position.toTokenId()), liquidity);
     }
 }

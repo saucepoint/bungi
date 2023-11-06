@@ -24,6 +24,7 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
     LiquidityHelpers helper;
 
     PoolKey poolKey;
+    PoolKey poolKey2;
     PoolId poolId;
 
     function setUp() public {
@@ -40,6 +41,11 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
             PoolKey(Currency.wrap(address(token0)), Currency.wrap(address(token1)), 3000, 60, IHooks(address(0x0)));
         poolId = poolKey.toId();
         manager.initialize(poolKey, SQRT_RATIO_1_1, ZERO_BYTES);
+
+        // Create a second pool
+        poolKey2 =
+            PoolKey(Currency.wrap(address(token0)), Currency.wrap(address(token1)), 5000, 60, IHooks(address(0x0)));
+        manager.initialize(poolKey2, SQRT_RATIO_1_1, ZERO_BYTES);
     }
 
     function test_addLiquidity() public {
@@ -145,6 +151,33 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         // new position was created
         Position memory newPosition = Position({poolKey: poolKey, tickLower: newTickLower, tickUpper: newTickUpper});
         assertEq(lpm.balanceOf(address(this), newPosition.toTokenId()), uint256(newLiquidity));
+    }
+
+    function test_migratePosition() public {
+        int24 tickLower = -600;
+        int24 tickUpper = 600;
+        int256 liquidity = 1e18;
+        addLiquidity(poolKey, tickLower, tickUpper, uint256(liquidity));
+        Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
+
+        uint256 balance0Before = token0.balanceOf(address(this));
+        uint256 balance1Before = token1.balanceOf(address(this));
+
+        uint256 bal = lpm.balanceOf(address(this), position.toTokenId());
+        assertEq(bal, uint256(liquidity));
+
+        lpm.migratePosition(address(this), position, poolKey2, ZERO_BYTES, ZERO_BYTES);
+
+        // new liquidity position did not require net-new tokens
+        assertApproxEqAbs(token0.balanceOf(address(this)), balance0Before, 3 wei);
+        assertApproxEqAbs(token1.balanceOf(address(this)), balance1Before, 3 wei);
+
+        // old position was unwound entirely
+        assertEq(lpm.balanceOf(address(this), position.toTokenId()), 0);
+
+        // new position was created
+        Position memory newPosition = Position({poolKey: poolKey2, tickLower: tickLower, tickUpper: tickUpper});
+        assertEq(lpm.balanceOf(address(this), newPosition.toTokenId()), bal);
     }
 
     function addLiquidity(PoolKey memory key, int24 tickLower, int24 tickUpper, uint256 liquidity) internal {
