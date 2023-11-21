@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import {HookTest} from "./utils/HookTest.sol";
 import {LiquidityPositionManager} from "../src/LiquidityPositionManager.sol";
 import {PoolKey} from "@uniswap/v4-core/contracts/types/PoolKey.sol";
+import {BalanceDelta} from "@uniswap/v4-core/contracts/types/BalanceDelta.sol";
 import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/contracts/types/PoolId.sol";
 import {IPoolManager} from "@uniswap/v4-core/contracts/interfaces/IPoolManager.sol";
 import {Deployers} from "@uniswap/v4-core/test/foundry-tests/utils/Deployers.sol";
@@ -14,6 +15,7 @@ import {Position, PositionId, PositionIdLibrary} from "../src/types/PositionId.s
 import {TickMath} from "@uniswap/v4-core/contracts/libraries/TickMath.sol";
 import {Position as PoolPosition} from "@uniswap/v4-core/contracts/libraries/Position.sol";
 import {LiquidityHelpers} from "../src/lens/LiquidityHelpers.sol";
+import {LiquidityAmounts} from "v4-periphery/libraries/LiquidityAmounts.sol";
 
 contract LiquidityPositionManagerTest is HookTest, Deployers {
     using PoolIdLibrary for PoolKey;
@@ -46,7 +48,15 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         int24 tickLower = -600;
         int24 tickUpper = 600;
         uint256 liquidity = 1e18;
-        lpm.modifyPosition(
+
+        (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
+            SQRT_RATIO_1_1,
+            TickMath.getSqrtRatioAtTick(tickLower),
+            TickMath.getSqrtRatioAtTick(tickUpper),
+            uint128(liquidity)
+        );
+
+        BalanceDelta result = lpm.modifyPosition(
             address(this),
             poolKey,
             IPoolManager.ModifyPositionParams({
@@ -58,6 +68,9 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         );
         Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
         assertEq(lpm.balanceOf(address(this), position.toTokenId()), liquidity);
+
+        assertApproxEqAbs(int256(result.amount0()), int256(amount0), 1 wei);
+        assertApproxEqAbs(int256(result.amount1()), int256(amount1), 1 wei);
     }
 
     function test_removeFullLiquidity() public {
@@ -65,9 +78,18 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         int24 tickUpper = 600;
         uint256 liquidity = 1e18;
         addLiquidity(poolKey, tickLower, tickUpper, liquidity);
+
+        (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
+            SQRT_RATIO_1_1,
+            TickMath.getSqrtRatioAtTick(tickLower),
+            TickMath.getSqrtRatioAtTick(tickUpper),
+            uint128(liquidity)
+        );
+
         Position memory position = Position({poolKey: poolKey, tickLower: tickLower, tickUpper: tickUpper});
         assertEq(lpm.balanceOf(address(this), position.toTokenId()), liquidity);
-        lpm.modifyPosition(
+        
+        BalanceDelta result = lpm.modifyPosition(
             address(this),
             poolKey,
             IPoolManager.ModifyPositionParams({
@@ -78,6 +100,9 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
             ZERO_BYTES
         );
         assertEq(lpm.balanceOf(address(this), position.toTokenId()), 0);
+
+        assertApproxEqAbs(int256(-result.amount0()), int256(amount0), 1 wei);
+        assertApproxEqAbs(int256(-result.amount1()), int256(amount1), 1 wei);
     }
 
     function test_removePartialLiquidity() public {
@@ -122,7 +147,7 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         assertEq(lpm.balanceOf(address(this), position.toTokenId()), uint256(liquidity));
 
         uint128 newLiquidity = helper.getNewLiquidity(position, -liquidity, newTickLower, newTickUpper);
-        lpm.rebalancePosition(
+        BalanceDelta result = lpm.rebalancePosition(
             address(this),
             position,
             -liquidity, // fully unwind
@@ -134,6 +159,9 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
             ZERO_BYTES,
             ZERO_BYTES
         );
+        // perfect rebalance so now deltas required
+        assertEq(result.amount0(), 0);
+        assertEq(result.amount1(), 0);
 
         // new liquidity position did not require net-new tokens
         assertEq(token0.balanceOf(address(this)), balance0Before);
