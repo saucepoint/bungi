@@ -15,13 +15,18 @@ import {Position, PositionId, PositionIdLibrary} from "./types/PositionId.sol";
 import {Position as PoolPosition} from "@uniswap/v4-core/contracts/libraries/Position.sol";
 import {LiquidityAmounts} from "v4-periphery/libraries/LiquidityAmounts.sol";
 import {TickMath} from "@uniswap/v4-core/contracts/libraries/TickMath.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 contract LiquidityPositionManager is ERC6909 {
+    using FixedPointMathLib for uint256;
     using CurrencyLibrary for Currency;
     using PositionIdLibrary for Position;
     using PoolIdLibrary for PoolKey;
 
+    uint256 public epoch;
     IPoolManager public immutable manager;
+    mapping(address owner => mapping(uint256 positionTokenId => mapping(Currency currency => uint256 epoch))) public lastClaimedEpoch;
+    mapping(uint256 epoch => mapping(uint256 positionTokenId => mapping(Currency currency => uint256 feesPerLiq))) public feesPerLiquidity;
 
     struct CallbackData {
         address sender;
@@ -105,6 +110,19 @@ contract LiquidityPositionManager is ERC6909 {
     function handleModifyPosition(bytes memory rawData) external returns (BalanceDelta delta) {
         CallbackData memory data = abi.decode(rawData, (CallbackData));
 
+        // TODO: token1
+        Position memory position = Position({poolKey: data.key, tickLower: data.params.tickLower, tickUpper: data.params.tickUpper});
+        console2.log("%s init'ing %s", data.owner, epoch + 1);
+        lastClaimedEpoch[data.owner][position.toTokenId()][data.key.currency0] = epoch + 1;
+        epoch++;
+
+        // claim existing fees
+        PoolPosition.Info memory p =
+            manager.getPosition(data.key.toId(), address(this), data.params.tickLower, data.params.tickUpper);
+        if (p.liquidity > 0) {
+            pullFees(position, data.owner);
+        }
+
         delta = manager.modifyPosition(data.key, data.params, data.hookData);
         processBalanceDelta(data.sender, data.owner, data.key.currency0, data.key.currency1, delta);
     }
@@ -115,7 +133,16 @@ contract LiquidityPositionManager is ERC6909 {
         IPoolManager.ModifyPositionParams memory params,
         bytes calldata hookData
     ) external returns (BalanceDelta delta) {
-        // checks & effects
+        require(params.liquidityDelta != 0, "Liquidity delta cannot be zero");
+        delta = abi.decode(
+            manager.lock(
+                abi.encodeCall(
+                    this.handleModifyPosition, abi.encode(CallbackData(msg.sender, owner, key, params, hookData))
+                )
+            ),
+            (BalanceDelta)
+        );
+
         uint256 tokenId = Position({poolKey: key, tickLower: params.tickLower, tickUpper: params.tickUpper}).toTokenId();
         if (params.liquidityDelta < 0) {
             // only the operator or owner can burn
@@ -127,16 +154,6 @@ contract LiquidityPositionManager is ERC6909 {
             // TODO: proper book keeping to avoid double-counting
             _mint(owner, tokenId, uint256(params.liquidityDelta));
         }
-
-        // interactions
-        delta = abi.decode(
-            manager.lock(
-                abi.encodeCall(
-                    this.handleModifyPosition, abi.encode(CallbackData(msg.sender, owner, key, params, hookData))
-                )
-            ),
-            (BalanceDelta)
-        );
 
         uint256 ethBalance = address(this).balance;
         if (ethBalance > 0) {
@@ -189,14 +206,64 @@ contract LiquidityPositionManager is ERC6909 {
         }
     }
 
+    // --- Fee Claims --- //
+    function pullFees(Position memory position, address owner) public returns (BalanceDelta delta) {
+        BalanceDelta result = manager.modifyPosition(
+            position.poolKey,
+            IPoolManager.ModifyPositionParams({
+                tickLower: position.tickLower,
+                tickUpper: position.tickUpper,
+                liquidityDelta: 0
+            }),
+            new bytes(0) // TODO: hook data
+        );
+        
+        // TODO: other token
+        uint256 tokenId = position.toTokenId();
+        // console2.log(uint256(-int256(result.amount0())).divWadDown(totalSupply[tokenId]));
+        feesPerLiquidity[epoch][tokenId][position.poolKey.currency0] = uint256(-int256(result.amount0())).divWadDown(totalSupply[tokenId]) + feesPerLiquidity[epoch - 1][tokenId][position.poolKey.currency0];
+        console2.log("%s epoch FPL", epoch, feesPerLiquidity[epoch][tokenId][position.poolKey.currency0]);
+
+        processBalanceDelta(address(this), address(this), position.poolKey.currency0, position.poolKey.currency1, result);
+    }
+
+    function collectFees(address owner, Position calldata position, Currency currency) external {
+        if (!(msg.sender == owner || isOperator[owner][msg.sender])) revert InsufficientPermission();
+
+        epoch++;
+        abi.decode(
+            manager.lock(
+                abi.encodeCall(
+                    this.pullFees, (position, owner)
+                )
+            ),
+            (BalanceDelta)
+        );
+        uint256 tokenId = position.toTokenId();
+        console2.log("owner last claimed %s", lastClaimedEpoch[owner][tokenId][currency], owner);
+        console2.log("\tNOW", feesPerLiquidity[epoch][tokenId][currency]);
+        console2.log("\tLAST", feesPerLiquidity[lastClaimedEpoch[owner][tokenId][currency]][tokenId][currency]);
+        
+        uint256 feesPerLiq = feesPerLiquidity[epoch][tokenId][currency] - feesPerLiquidity[lastClaimedEpoch[owner][tokenId][currency]][tokenId][currency];
+        uint256 amount = balanceOf[owner][tokenId].mulWadDown(feesPerLiq);
+        console2.log("\tLiq Bal", balanceOf[owner][tokenId]);
+        console2.log("\tfeePerLiq", feesPerLiq);
+        //console2.log(currency.balanceOfSelf());
+        console2.log("\tSending", amount);
+        lastClaimedEpoch[owner][tokenId][position.poolKey.currency0] = epoch;
+        currency.transfer(msg.sender, amount);
+    }
+
     // --- ERC-6909 --- //
     function _mint(address owner, uint256 tokenId, uint256 amount) internal {
         balanceOf[owner][tokenId] += amount;
+        totalSupply[tokenId] += amount;
         emit Transfer(msg.sender, address(this), owner, tokenId, amount);
     }
 
     function _burn(address owner, uint256 tokenId, uint256 amount) internal {
         balanceOf[owner][tokenId] -= amount;
+        totalSupply[tokenId] -= amount;
         emit Transfer(msg.sender, owner, address(this), tokenId, amount);
     }
 }
