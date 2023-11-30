@@ -110,11 +110,12 @@ contract LiquidityPositionManager is ERC6909 {
     function handleModifyPosition(bytes memory rawData) external returns (BalanceDelta delta) {
         CallbackData memory data = abi.decode(rawData, (CallbackData));
 
-        // TODO: token1
         Position memory position = Position({poolKey: data.key, tickLower: data.params.tickLower, tickUpper: data.params.tickUpper});
-        console2.log("%s init'ing %s", data.owner, epoch + 1);
-        lastClaimedEpoch[data.owner][position.toTokenId()][data.key.currency0] = epoch + 1;
-        epoch++;
+        uint256 _epoch;
+        unchecked { _epoch = ++epoch; }
+        uint256 tokenId = position.toTokenId();
+        lastClaimedEpoch[data.owner][tokenId][data.key.currency0] = _epoch;
+        lastClaimedEpoch[data.owner][tokenId][data.key.currency1] = _epoch;
 
         // claim existing fees
         PoolPosition.Info memory p =
@@ -218,11 +219,9 @@ contract LiquidityPositionManager is ERC6909 {
             new bytes(0) // TODO: hook data
         );
         
-        // TODO: other token
         uint256 tokenId = position.toTokenId();
-        // console2.log(uint256(-int256(result.amount0())).divWadDown(totalSupply[tokenId]));
         feesPerLiquidity[epoch][tokenId][position.poolKey.currency0] = uint256(-int256(result.amount0())).divWadDown(totalSupply[tokenId]) + feesPerLiquidity[epoch - 1][tokenId][position.poolKey.currency0];
-        console2.log("%s epoch FPL", epoch, feesPerLiquidity[epoch][tokenId][position.poolKey.currency0]);
+        feesPerLiquidity[epoch][tokenId][position.poolKey.currency1] = uint256(-int256(result.amount1())).divWadDown(totalSupply[tokenId]) + feesPerLiquidity[epoch - 1][tokenId][position.poolKey.currency1];
 
         processBalanceDelta(address(this), address(this), position.poolKey.currency0, position.poolKey.currency1, result);
     }
@@ -230,7 +229,7 @@ contract LiquidityPositionManager is ERC6909 {
     function collectFees(address owner, Position calldata position, Currency currency) external {
         if (!(msg.sender == owner || isOperator[owner][msg.sender])) revert InsufficientPermission();
 
-        epoch++;
+        unchecked { ++epoch; }
         abi.decode(
             manager.lock(
                 abi.encodeCall(
@@ -240,16 +239,15 @@ contract LiquidityPositionManager is ERC6909 {
             (BalanceDelta)
         );
         uint256 tokenId = position.toTokenId();
-        console2.log("owner last claimed %s", lastClaimedEpoch[owner][tokenId][currency], owner);
-        console2.log("\tNOW", feesPerLiquidity[epoch][tokenId][currency]);
-        console2.log("\tLAST", feesPerLiquidity[lastClaimedEpoch[owner][tokenId][currency]][tokenId][currency]);
+        // console2.log("owner last claimed %s", lastClaimedEpoch[owner][tokenId][currency], owner);
+        // console2.log("\tNOW", feesPerLiquidity[epoch][tokenId][currency]);
+        // console2.log("\tLAST", feesPerLiquidity[lastClaimedEpoch[owner][tokenId][currency]][tokenId][currency]);
         
         uint256 feesPerLiq = feesPerLiquidity[epoch][tokenId][currency] - feesPerLiquidity[lastClaimedEpoch[owner][tokenId][currency]][tokenId][currency];
         uint256 amount = balanceOf[owner][tokenId].mulWadDown(feesPerLiq);
-        console2.log("\tLiq Bal", balanceOf[owner][tokenId]);
-        console2.log("\tfeePerLiq", feesPerLiq);
-        //console2.log(currency.balanceOfSelf());
-        console2.log("\tSending", amount);
+        // console2.log("\tLiq Bal", balanceOf[owner][tokenId]);
+        // console2.log("\tfeePerLiq", feesPerLiq);
+        // console2.log("\tSending", amount);
         lastClaimedEpoch[owner][tokenId][position.poolKey.currency0] = epoch;
         currency.transfer(msg.sender, amount);
     }
