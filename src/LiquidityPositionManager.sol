@@ -7,7 +7,7 @@ import {IPoolManager} from "@uniswap/v4-core/contracts/interfaces/IPoolManager.s
 import {PoolKey} from "@uniswap/v4-core/contracts/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/contracts/types/PoolId.sol";
 import {BalanceDelta} from "@uniswap/v4-core/contracts/types/BalanceDelta.sol";
-import {ERC6909} from "ERC-6909/ERC6909.sol";
+import {ERC6909TokenSupply} from "ERC-6909/ERC6909TokenSupply.sol";
 import {CurrencyLibrary, Currency} from "@uniswap/v4-core/contracts/types/Currency.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {Position, PositionId, PositionIdLibrary} from "./types/PositionId.sol";
@@ -16,7 +16,7 @@ import {LiquidityAmounts} from "v4-periphery/libraries/LiquidityAmounts.sol";
 import {TickMath} from "@uniswap/v4-core/contracts/libraries/TickMath.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
-contract LiquidityPositionManager is ERC6909 {
+contract LiquidityPositionManager is ERC6909TokenSupply {
     using FixedPointMathLib for uint256;
     using CurrencyLibrary for Currency;
     using PositionIdLibrary for Position;
