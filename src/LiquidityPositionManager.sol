@@ -2,18 +2,17 @@
 pragma solidity ^0.8.20;
 
 import {console2} from "forge-std/console2.sol";
-import {Hooks} from "@uniswap/v4-core/contracts/libraries/Hooks.sol";
-import {IPoolManager} from "@uniswap/v4-core/contracts/interfaces/IPoolManager.sol";
-import {PoolKey} from "@uniswap/v4-core/contracts/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/contracts/types/PoolId.sol";
-import {BalanceDelta} from "@uniswap/v4-core/contracts/types/BalanceDelta.sol";
+import {Hooks} from "v4-core/src/libraries/Hooks.sol";
+import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
+import {PoolKey} from "v4-core/src/types/PoolKey.sol";
+import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
+import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {ERC6909TokenSupply} from "ERC-6909/ERC6909TokenSupply.sol";
-import {CurrencyLibrary, Currency} from "@uniswap/v4-core/contracts/types/Currency.sol";
+import {CurrencyLibrary, Currency} from "v4-core/src/types/Currency.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {Position, PositionId, PositionIdLibrary} from "./types/PositionId.sol";
-import {Position as PoolPosition} from "@uniswap/v4-core/contracts/libraries/Position.sol";
-import {LiquidityAmounts} from "v4-periphery/libraries/LiquidityAmounts.sol";
-import {TickMath} from "@uniswap/v4-core/contracts/libraries/TickMath.sol";
+import {Position as PoolPosition} from "v4-core/src/libraries/Position.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 contract LiquidityPositionManager is ERC6909TokenSupply {
@@ -58,6 +57,7 @@ contract LiquidityPositionManager is ERC6909TokenSupply {
         if (!(msg.sender == owner || isOperator[owner][msg.sender])) revert InsufficientPermission();
         delta = abi.decode(
             manager.lock(
+                address(this),
                 abi.encodeCall(
                     this.handleRebalancePosition,
                     (msg.sender, owner, position, existingLiquidityDelta, params, hookDataOnBurn, hookDataOnMint)
@@ -136,6 +136,7 @@ contract LiquidityPositionManager is ERC6909TokenSupply {
         require(params.liquidityDelta != 0, "Liquidity delta cannot be zero");
         delta = abi.decode(
             manager.lock(
+                address(this),
                 abi.encodeCall(
                     this.handleModifyPosition, abi.encode(CallbackData(msg.sender, owner, key, params, hookData))
                 )
@@ -161,7 +162,7 @@ contract LiquidityPositionManager is ERC6909TokenSupply {
         }
     }
 
-    function lockAcquired(bytes calldata data) external returns (bytes memory) {
+    function lockAcquired(address, bytes calldata data) external returns (bytes memory) {
         require(msg.sender == address(manager));
 
         (bool success, bytes memory returnData) = address(this).call(data);
@@ -231,6 +232,7 @@ contract LiquidityPositionManager is ERC6909TokenSupply {
         unchecked { ++epoch; }
         abi.decode(
             manager.lock(
+                address(this),
                 abi.encodeCall(
                     this.pullFees, (position, owner)
                 )

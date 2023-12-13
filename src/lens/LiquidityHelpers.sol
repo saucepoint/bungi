@@ -2,12 +2,12 @@
 pragma solidity ^0.8.20;
 
 import {Position, PositionId, PositionIdLibrary} from "../types/PositionId.sol";
-import {Position as PoolPosition} from "@uniswap/v4-core/contracts/libraries/Position.sol";
-import {LiquidityAmounts} from "v4-periphery/libraries/LiquidityAmounts.sol";
-import {TickMath} from "@uniswap/v4-core/contracts/libraries/TickMath.sol";
-import {IPoolManager} from "@uniswap/v4-core/contracts/interfaces/IPoolManager.sol";
-import {PoolKey} from "@uniswap/v4-core/contracts/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/contracts/types/PoolId.sol";
+import {Position as PoolPosition} from "v4-core/src/libraries/Position.sol";
+import {LiquidityAmounts} from "v4-core/test/utils/LiquidityAmounts.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
+import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
+import {PoolKey} from "v4-core/src/types/PoolKey.sol";
+import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {LiquidityPositionManager} from "../LiquidityPositionManager.sol";
 
 contract LiquidityHelpers {
@@ -48,7 +48,7 @@ contract LiquidityHelpers {
         returns (uint160 sqrtPriceX96, uint256 amount0, uint256 amount1)
     {
         PoolId poolId = position.poolKey.toId();
-        (sqrtPriceX96,,,) = manager.getSlot0(poolId);
+        (sqrtPriceX96,,) = manager.getSlot0(poolId);
 
         // TODO: read the liquidity of the owner, not the LPM contract
         uint128 currentLiquidity =
