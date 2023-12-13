@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 import {console2} from "forge-std/console2.sol";
-import {BaseHook} from "v4-periphery/BaseHook.sol";
 import {Hooks} from "@uniswap/v4-core/contracts/libraries/Hooks.sol";
 import {IPoolManager} from "@uniswap/v4-core/contracts/interfaces/IPoolManager.sol";
 import {PoolKey} from "@uniswap/v4-core/contracts/types/PoolKey.sol";
