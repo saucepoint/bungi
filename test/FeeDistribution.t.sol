@@ -4,18 +4,18 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import {HookTest} from "./utils/HookTest.sol";
 import {LiquidityPositionManager} from "../src/LiquidityPositionManager.sol";
-import {PoolKey} from "@uniswap/v4-core/contracts/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/contracts/types/PoolId.sol";
-import {IPoolManager} from "@uniswap/v4-core/contracts/interfaces/IPoolManager.sol";
-import {Deployers} from "@uniswap/v4-core/test/foundry-tests/utils/Deployers.sol";
-import {CurrencyLibrary, Currency} from "@uniswap/v4-core/contracts/types/Currency.sol";
-import {IHooks} from "@uniswap/v4-core/contracts/interfaces/IHooks.sol";
+import {PoolKey} from "v4-core/src/types/PoolKey.sol";
+import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
+import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
+import {CurrencyLibrary, Currency} from "v4-core/src/types/Currency.sol";
+import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {Position, PositionId, PositionIdLibrary} from "../src/types/PositionId.sol";
-import {TickMath} from "@uniswap/v4-core/contracts/libraries/TickMath.sol";
-import {Position as PoolPosition} from "@uniswap/v4-core/contracts/libraries/Position.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
+import {Position as PoolPosition} from "v4-core/src/libraries/Position.sol";
 import {LiquidityHelpers} from "../src/lens/LiquidityHelpers.sol";
+import {Constants} from "v4-core/test/utils/Constants.sol";
 
-contract LiquidityPositionManagerTest is HookTest, Deployers {
+contract FeeDistributionTest is HookTest {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
     using PositionIdLibrary for Position;
@@ -34,6 +34,8 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
     int24 minTick;
     int24 maxTick;
 
+    bytes constant ZERO_BYTES = "";
+
     function setUp() public {
         HookTest.initHookTestEnv();
 
@@ -47,7 +49,7 @@ contract LiquidityPositionManagerTest is HookTest, Deployers {
         poolKey =
             PoolKey(Currency.wrap(address(token0)), Currency.wrap(address(token1)), 10_000, 60, IHooks(address(0x0)));
         poolId = poolKey.toId();
-        manager.initialize(poolKey, SQRT_RATIO_1_1, ZERO_BYTES);
+        initializeRouter.initialize(poolKey, Constants.SQRT_RATIO_1_1, ZERO_BYTES);
 
         minTick = TickMath.minUsableTick(60);
         maxTick = TickMath.maxUsableTick(60);

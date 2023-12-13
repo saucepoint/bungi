@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.20;
 
-import {PoolKey} from "@uniswap/v4-core/contracts/types/PoolKey.sol";
+import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 
 type PositionId is bytes32;
 
