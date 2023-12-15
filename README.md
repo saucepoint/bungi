@@ -25,7 +25,7 @@ Until Uniswap Labs releases a canonical LP router (equivalent to v3's [Nonfungib
 - [x] Permissioned operators and managers. Delegate to a trusted party to manage your liquidity positions
     - **Allow a hook to modify and adjust your position(s)!**
 
-- [ ] Fee accounting and collection (TODO)
+- [x] Fee accounting and collection
 
 - [ ] Swap-n-add (TODO)
 
