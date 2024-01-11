@@ -76,7 +76,7 @@ contract LiquidityOwnershipTest is HookTest {
         lpm.modifyPosition(
             alice, // alice, the owner
             poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: int256(liquidity)
@@ -103,7 +103,7 @@ contract LiquidityOwnershipTest is HookTest {
         lpm.modifyPosition(
             alice, // alice, the owner
             poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: int256(liquidity)
@@ -118,7 +118,7 @@ contract LiquidityOwnershipTest is HookTest {
         lpm.modifyPosition(
             alice, // alice, the owner
             poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: int256(liquidity)
@@ -142,7 +142,7 @@ contract LiquidityOwnershipTest is HookTest {
         lpm.modifyPosition(
             alice, // alice, the owner
             poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: int256(liquidity)
@@ -157,7 +157,7 @@ contract LiquidityOwnershipTest is HookTest {
         lpm.modifyPosition(
             alice, // bob, not the owner cannot modify without permission
             poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: -int256(liquidity)
@@ -180,7 +180,7 @@ contract LiquidityOwnershipTest is HookTest {
         lpm.modifyPosition(
             alice, // alice, the owner
             poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: int256(liquidity)
@@ -199,7 +199,7 @@ contract LiquidityOwnershipTest is HookTest {
             alice, // bob cannot modify alice's position
             position,
             -int256(liquidity), // fully unwind
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: newTickLower,
                 tickUpper: newTickUpper,
                 liquidityDelta: int256(uint256(newLiquidity))
@@ -223,7 +223,7 @@ contract LiquidityOwnershipTest is HookTest {
         lpm.modifyPosition(
             alice, // alice, the owner
             poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: int256(liquidity)
@@ -241,7 +241,7 @@ contract LiquidityOwnershipTest is HookTest {
         lpm.modifyPosition(
             alice, // bob has operator permissions to close alice's LP
             poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: -int256(liquidity)
@@ -266,7 +266,7 @@ contract LiquidityOwnershipTest is HookTest {
         lpm.modifyPosition(
             alice, // alice, the owner
             poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: int256(liquidity)
@@ -288,7 +288,7 @@ contract LiquidityOwnershipTest is HookTest {
             alice, // bob has permission to rebalance for alice
             position,
             -int256(liquidity), // fully unwind
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: newTickLower,
                 tickUpper: newTickUpper,
                 liquidityDelta: int256(uint256(newLiquidity))

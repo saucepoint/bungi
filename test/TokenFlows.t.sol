@@ -165,7 +165,7 @@ contract TokenFlowsTest is HookTest {
             alice,
             position,
             liquidityAdjustment, // partially unwind
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: newTickLower,
                 tickUpper: newTickUpper,
                 liquidityDelta: int256(uint256(newLiquidity) / 2)
@@ -206,7 +206,7 @@ contract TokenFlowsTest is HookTest {
             alice,
             position,
             liquidityAdjustment, // partially unwind
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: newTickLower,
                 tickUpper: newTickUpper,
                 liquidityDelta: int256(uint256(newLiquidity) / 2)
@@ -226,7 +226,7 @@ contract TokenFlowsTest is HookTest {
         lpm.modifyPosition(
             recipient,
             key,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: int256(liquidity)
@@ -241,7 +241,7 @@ contract TokenFlowsTest is HookTest {
         lpm.modifyPosition(
             owner,
             key,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: -int256(liquidity)
