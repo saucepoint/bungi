@@ -79,7 +79,7 @@ contract FeeDistributionTest is HookTest {
         lpm.modifyPosition(
             alice,
             poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: minTick,
                 tickUpper: maxTick,
                 liquidityDelta: int256(10_000e18)
@@ -105,7 +105,7 @@ contract FeeDistributionTest is HookTest {
         lpm.modifyPosition(
             alice,
             poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: minTick,
                 tickUpper: maxTick,
                 liquidityDelta: int256(10_000e18)
@@ -119,7 +119,7 @@ contract FeeDistributionTest is HookTest {
         lpm.modifyPosition(
             bob,
             poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: minTick,
                 tickUpper: maxTick,
                 liquidityDelta: int256(10_000e18)

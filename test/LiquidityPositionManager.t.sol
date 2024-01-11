@@ -52,7 +52,7 @@ contract LiquidityPositionManagerTest is HookTest {
         lpm.modifyPosition(
             address(this),
             poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: int256(liquidity)
@@ -73,7 +73,7 @@ contract LiquidityPositionManagerTest is HookTest {
         lpm.modifyPosition(
             address(this),
             poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: -int256(liquidity)
@@ -129,7 +129,7 @@ contract LiquidityPositionManagerTest is HookTest {
             address(this),
             position,
             -liquidity, // fully unwind
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: newTickLower,
                 tickUpper: newTickUpper,
                 liquidityDelta: int256(uint256(newLiquidity))
@@ -154,7 +154,7 @@ contract LiquidityPositionManagerTest is HookTest {
         lpm.modifyPosition(
             address(this),
             key,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: int256(liquidity)
@@ -167,7 +167,7 @@ contract LiquidityPositionManagerTest is HookTest {
         lpm.modifyPosition(
             address(this),
             key,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: -int256(liquidity)

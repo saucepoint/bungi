@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import {PoolManager} from "v4-core/src/PoolManager.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
-import {PoolModifyPositionTest} from "v4-core/src/test/PoolModifyPositionTest.sol";
+import {PoolModifyLiquidityTest} from "v4-core/src/test/PoolModifyLiquidityTest.sol";
 import {PoolSwapTest} from "v4-core/src/test/PoolSwapTest.sol";
 import {PoolDonateTest} from "v4-core/src/test/PoolDonateTest.sol";
 import {PoolInitializeTest} from "v4-core/src/test/PoolInitializeTest.sol";
@@ -18,7 +18,7 @@ import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 /// @dev Minimal initialization. Inheriting contract should set up pools and provision liquidity
 contract HookTest is Test {
     PoolManager manager;
-    PoolModifyPositionTest modifyPositionRouter;
+    PoolModifyLiquidityTest modifyPositionRouter;
     PoolSwapTest swapRouter;
     PoolDonateTest donateRouter;
     PoolInitializeTest initializeRouter;
@@ -45,7 +45,7 @@ contract HookTest is Test {
         manager = new PoolManager(500000);
 
         // Helpers for interacting with the pool
-        modifyPositionRouter = new PoolModifyPositionTest(IPoolManager(address(manager)));
+        modifyPositionRouter = new PoolModifyLiquidityTest(IPoolManager(address(manager)));
         swapRouter = new PoolSwapTest(IPoolManager(address(manager)));
         donateRouter = new PoolDonateTest(IPoolManager(address(manager)));
         initializeRouter = new PoolInitializeTest(IPoolManager(address(manager)));

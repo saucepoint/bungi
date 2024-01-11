@@ -12,7 +12,7 @@ forge install saucepoint/bungi
 
 # Features
 
-Until Uniswap Labs releases a canonical LP router (equivalent to v3's [NonfungiblePositionManager](https://github.com/Uniswap/v3-periphery/blob/main/contracts/NonfungiblePositionManager.sol)), there was a growing need for **an advanced LP router** with more features than the baseline [PoolModifyPositionTest](https://github.com/Uniswap/v4-core/blob/main/contracts/test/PoolModifyPositionTest.sol)
+Until Uniswap Labs releases a canonical LP router (equivalent to v3's [NonfungiblePositionManager](https://github.com/Uniswap/v3-periphery/blob/main/contracts/NonfungiblePositionManager.sol)), there was a growing need for **an advanced LP router** with more features than the baseline [PoolModifyLiquidityTest](https://github.com/Uniswap/v4-core/blob/main/contracts/test/PoolModifyLiquidityTest.sol)
 
 
 ## 🅱️ungi's liquidity position manager (LPM) supports:
@@ -69,7 +69,7 @@ Add Liquidity
     lpm.modifyPosition(
         address(this),
         poolKey,
-        IPoolManager.ModifyPositionParams({
+        IPoolManager.ModifyLiquidityParams({
             tickLower: tickLower,
             tickUpper: tickUpper,
             liquidityDelta: int256(liquidity)
@@ -93,7 +93,7 @@ Remove Liquidity
     lpm.modifyPosition(
         address(this),
         poolKey,
-        IPoolManager.ModifyPositionParams({
+        IPoolManager.ModifyLiquidityParams({
             tickLower: tickLower,
             tickUpper: tickUpper,
             liquidityDelta: -int256(liquidity)
@@ -116,7 +116,7 @@ Rebalance Liquidity
         address(this),
         position,
         -liquidity, // fully unwind
-        IPoolManager.ModifyPositionParams({
+        IPoolManager.ModifyLiquidityParams({
             tickLower: newTickLower,
             tickUpper: newTickUpper,
             liquidityDelta: int256(uint256(newLiquidity))

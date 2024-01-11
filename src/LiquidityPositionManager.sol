@@ -30,7 +30,7 @@ contract LiquidityPositionManager is ERC6909TokenSupply {
         address sender;
         address owner;
         PoolKey key;
-        IPoolManager.ModifyPositionParams params;
+        IPoolManager.ModifyLiquidityParams params;
         bytes hookData;
     }
 
@@ -50,7 +50,7 @@ contract LiquidityPositionManager is ERC6909TokenSupply {
         address owner,
         Position memory position,
         int256 existingLiquidityDelta,
-        IPoolManager.ModifyPositionParams memory params,
+        IPoolManager.ModifyLiquidityParams memory params,
         bytes calldata hookDataOnBurn,
         bytes calldata hookDataOnMint
     ) external returns (BalanceDelta delta) {
@@ -83,23 +83,23 @@ contract LiquidityPositionManager is ERC6909TokenSupply {
         address owner,
         Position memory position,
         int256 existingLiquidityDelta,
-        IPoolManager.ModifyPositionParams memory params,
+        IPoolManager.ModifyLiquidityParams memory params,
         bytes memory hookDataOnBurn,
         bytes memory hookDataOnMint
     ) external returns (BalanceDelta delta) {
         PoolKey memory key = position.poolKey;
 
         // unwind the old position
-        BalanceDelta deltaBurn = manager.modifyPosition(
+        BalanceDelta deltaBurn = manager.modifyLiquidity(
             key,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: position.tickLower,
                 tickUpper: position.tickUpper,
                 liquidityDelta: existingLiquidityDelta
             }),
             hookDataOnBurn
         );
-        BalanceDelta deltaMint = manager.modifyPosition(key, params, hookDataOnMint);
+        BalanceDelta deltaMint = manager.modifyLiquidity(key, params, hookDataOnMint);
 
         delta = deltaBurn + deltaMint;
 
@@ -123,14 +123,14 @@ contract LiquidityPositionManager is ERC6909TokenSupply {
             pullFees(position, data.owner);
         }
 
-        delta = manager.modifyPosition(data.key, data.params, data.hookData);
+        delta = manager.modifyLiquidity(data.key, data.params, data.hookData);
         processBalanceDelta(data.sender, data.owner, data.key.currency0, data.key.currency1, delta);
     }
 
     function modifyPosition(
         address owner,
         PoolKey memory key,
-        IPoolManager.ModifyPositionParams memory params,
+        IPoolManager.ModifyLiquidityParams memory params,
         bytes calldata hookData
     ) external returns (BalanceDelta delta) {
         require(params.liquidityDelta != 0, "Liquidity delta cannot be zero");
@@ -209,9 +209,9 @@ contract LiquidityPositionManager is ERC6909TokenSupply {
 
     // --- Fee Claims --- //
     function pullFees(Position memory position, address owner) public returns (BalanceDelta delta) {
-        BalanceDelta result = manager.modifyPosition(
+        BalanceDelta result = manager.modifyLiquidity(
             position.poolKey,
-            IPoolManager.ModifyPositionParams({
+            IPoolManager.ModifyLiquidityParams({
                 tickLower: position.tickLower,
                 tickUpper: position.tickUpper,
                 liquidityDelta: 0
