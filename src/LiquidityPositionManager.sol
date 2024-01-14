@@ -23,8 +23,10 @@ contract LiquidityPositionManager is ERC6909TokenSupply {
 
     uint256 public epoch;
     IPoolManager public immutable manager;
-    mapping(address owner => mapping(uint256 positionTokenId => mapping(Currency currency => uint256 epoch))) public lastClaimedEpoch;
-    mapping(uint256 epoch => mapping(uint256 positionTokenId => mapping(Currency currency => uint256 feesPerLiq))) public feesPerLiquidity;
+    mapping(address owner => mapping(uint256 positionTokenId => mapping(Currency currency => uint256 epoch))) public
+        lastClaimedEpoch;
+    mapping(uint256 epoch => mapping(uint256 positionTokenId => mapping(Currency currency => uint256 feesPerLiq)))
+        public feesPerLiquidity;
 
     struct CallbackData {
         address sender;
@@ -109,9 +111,12 @@ contract LiquidityPositionManager is ERC6909TokenSupply {
     function handleModifyPosition(bytes memory rawData) external returns (BalanceDelta delta) {
         CallbackData memory data = abi.decode(rawData, (CallbackData));
 
-        Position memory position = Position({poolKey: data.key, tickLower: data.params.tickLower, tickUpper: data.params.tickUpper});
+        Position memory position =
+            Position({poolKey: data.key, tickLower: data.params.tickLower, tickUpper: data.params.tickUpper});
         uint256 _epoch;
-        unchecked { _epoch = ++epoch; }
+        unchecked {
+            _epoch = ++epoch;
+        }
         uint256 tokenId = position.toTokenId();
         lastClaimedEpoch[data.owner][tokenId][data.key.currency0] = _epoch;
         lastClaimedEpoch[data.owner][tokenId][data.key.currency1] = _epoch;
@@ -218,33 +223,34 @@ contract LiquidityPositionManager is ERC6909TokenSupply {
             }),
             new bytes(0) // TODO: hook data
         );
-        
-        uint256 tokenId = position.toTokenId();
-        feesPerLiquidity[epoch][tokenId][position.poolKey.currency0] = uint256(-int256(result.amount0())).divWadDown(totalSupply[tokenId]) + feesPerLiquidity[epoch - 1][tokenId][position.poolKey.currency0];
-        feesPerLiquidity[epoch][tokenId][position.poolKey.currency1] = uint256(-int256(result.amount1())).divWadDown(totalSupply[tokenId]) + feesPerLiquidity[epoch - 1][tokenId][position.poolKey.currency1];
 
-        processBalanceDelta(address(this), address(this), position.poolKey.currency0, position.poolKey.currency1, result);
+        uint256 tokenId = position.toTokenId();
+        feesPerLiquidity[epoch][tokenId][position.poolKey.currency0] = uint256(-int256(result.amount0())).divWadDown(
+            totalSupply[tokenId]
+        ) + feesPerLiquidity[epoch - 1][tokenId][position.poolKey.currency0];
+        feesPerLiquidity[epoch][tokenId][position.poolKey.currency1] = uint256(-int256(result.amount1())).divWadDown(
+            totalSupply[tokenId]
+        ) + feesPerLiquidity[epoch - 1][tokenId][position.poolKey.currency1];
+
+        processBalanceDelta(
+            address(this), address(this), position.poolKey.currency0, position.poolKey.currency1, result
+        );
     }
 
     function collectFees(address owner, Position calldata position, Currency currency) external {
         if (!(msg.sender == owner || isOperator[owner][msg.sender])) revert InsufficientPermission();
 
-        unchecked { ++epoch; }
-        abi.decode(
-            manager.lock(
-                address(this),
-                abi.encodeCall(
-                    this.pullFees, (position, owner)
-                )
-            ),
-            (BalanceDelta)
-        );
+        unchecked {
+            ++epoch;
+        }
+        abi.decode(manager.lock(address(this), abi.encodeCall(this.pullFees, (position, owner))), (BalanceDelta));
         uint256 tokenId = position.toTokenId();
         // console2.log("owner last claimed %s", lastClaimedEpoch[owner][tokenId][currency], owner);
         // console2.log("\tNOW", feesPerLiquidity[epoch][tokenId][currency]);
         // console2.log("\tLAST", feesPerLiquidity[lastClaimedEpoch[owner][tokenId][currency]][tokenId][currency]);
-        
-        uint256 feesPerLiq = feesPerLiquidity[epoch][tokenId][currency] - feesPerLiquidity[lastClaimedEpoch[owner][tokenId][currency]][tokenId][currency];
+
+        uint256 feesPerLiq = feesPerLiquidity[epoch][tokenId][currency]
+            - feesPerLiquidity[lastClaimedEpoch[owner][tokenId][currency]][tokenId][currency];
         uint256 amount = balanceOf[owner][tokenId].mulWadDown(feesPerLiq);
         // console2.log("\tLiq Bal", balanceOf[owner][tokenId]);
         // console2.log("\tfeePerLiq", feesPerLiq);
