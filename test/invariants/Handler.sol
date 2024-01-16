@@ -90,7 +90,6 @@ contract Handler is CommonBase, StdCheats, StdUtils {
         _pay(msg.sender, amount0, amount1);
 
         vm.startPrank(msg.sender);
-        console2.log(currency0.balanceOf(msg.sender));
         IERC20(Currency.unwrap(currency0)).approve(address(lpm), type(uint256).max);
         IERC20(Currency.unwrap(currency1)).approve(address(lpm), type(uint256).max);
         lpm.modifyPosition(
@@ -104,6 +103,8 @@ contract Handler is CommonBase, StdCheats, StdUtils {
             ZERO_BYTES
         );
         vm.stopPrank();
+
+        positions[msg.sender].push(Position({poolKey: key, tickLower: minTick, tickUpper: maxTick}));
     }
 
     // function swap(int256 amountSpecified, bool zeroForOne) internal {
@@ -121,12 +122,16 @@ contract Handler is CommonBase, StdCheats, StdUtils {
     //     swapRouter.swap(key, params, testSettings, ZERO_BYTES);
     // }
 
-    // function collectFees() public {
-    //     vm.startPrank(msg.sender);
-    //     lpm.collectFees(msg.sender, position, currency0);
-    //     lpm.collectFees(msg.sender, position, currency1);
-    //     vm.stopPrank();
-    // }
+    function collectFees() public {
+        calls["collectFees"]++;
+        vm.startPrank(msg.sender);
+        uint256 i;
+        for (i; i < positions[msg.sender].length; i++) {
+            lpm.collectFees(msg.sender, positions[msg.sender][i], currency0);
+            lpm.collectFees(msg.sender, positions[msg.sender][i], currency1);
+        }
+        vm.stopPrank();
+    }
 
     function _pay(address user, uint256 amount0, uint256 amount1) internal {
         MockERC20(Currency.unwrap(currency0)).mint(user, amount0 + 1e18);
@@ -137,6 +142,7 @@ contract Handler is CommonBase, StdCheats, StdUtils {
         console2.log("Call summary:");
         console2.log("-------------------");
         console2.log("mint", calls["mint"]);
+        console2.log("collectFees", calls["collectFees"]);
         console2.log("-------------------");
     }
 }
