@@ -4,6 +4,9 @@ pragma solidity ^0.8.20;
 import {CommonBase} from "forge-std/Base.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 import {StdUtils} from "forge-std/StdUtils.sol";
+import {console2} from "forge-std/console2.sol";
+
+import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 
 import {LiquidityPositionManager} from "../../src/LiquidityPositionManager.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
@@ -37,6 +40,7 @@ contract Handler is CommonBase, StdCheats, StdUtils {
     PoolKey key;
 
     mapping(address user => Position[]) positions;
+    mapping(string => uint256) calls;
 
     bytes constant ZERO_BYTES = "";
     uint160 public constant MIN_PRICE_LIMIT = TickMath.MIN_SQRT_RATIO + 1;
@@ -61,11 +65,16 @@ contract Handler is CommonBase, StdCheats, StdUtils {
         // approvals for swaps
         IERC20(Currency.unwrap(currency0)).approve(address(_swapRouter), type(uint256).max);
         IERC20(Currency.unwrap(currency1)).approve(address(_swapRouter), type(uint256).max);
+
+        // mint test tokens
+        MockERC20(Currency.unwrap(currency0)).mint(address(this), 100_000_000e18);
+        MockERC20(Currency.unwrap(currency1)).mint(address(this), 100_000_000e18);
     }
 
     function mint(int24 minTick, int24 maxTick, uint128 liquidity) public {
-        minTick = int24(bound(int256(minTick), int256(minTick), int256(-TICK_SPACING)));
-        maxTick = int24(bound(int256(maxTick), int256(TICK_SPACING), int256(maxTick)));
+        calls["mint"]++;
+        minTick = int24(bound(int256(minTick), TickMath.minUsableTick(TICK_SPACING), int256(-TICK_SPACING)));
+        maxTick = int24(bound(int256(maxTick), int256(TICK_SPACING), TickMath.maxUsableTick(TICK_SPACING)));
         liquidity = uint128(bound(uint256(liquidity), 1e18, 100_000e18));
 
         minTick = (minTick / TICK_SPACING) * TICK_SPACING;
@@ -81,6 +90,7 @@ contract Handler is CommonBase, StdCheats, StdUtils {
         _pay(msg.sender, amount0, amount1);
 
         vm.startPrank(msg.sender);
+        console2.log(currency0.balanceOf(msg.sender));
         IERC20(Currency.unwrap(currency0)).approve(address(lpm), type(uint256).max);
         IERC20(Currency.unwrap(currency1)).approve(address(lpm), type(uint256).max);
         lpm.modifyPosition(
@@ -119,7 +129,14 @@ contract Handler is CommonBase, StdCheats, StdUtils {
     // }
 
     function _pay(address user, uint256 amount0, uint256 amount1) internal {
-        currency0.transfer(user, amount0);
-        currency1.transfer(user, amount1);
+        MockERC20(Currency.unwrap(currency0)).mint(user, amount0 + 1e18);
+        MockERC20(Currency.unwrap(currency1)).mint(user, amount1 + 1e18);
+    }
+
+    function callSummary() external view {
+        console2.log("Call summary:");
+        console2.log("-------------------");
+        console2.log("mint", calls["mint"]);
+        console2.log("-------------------");
     }
 }
