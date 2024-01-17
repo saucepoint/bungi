@@ -75,7 +75,7 @@ contract Handler is CommonBase, StdCheats, StdUtils {
         calls["mint"]++;
         minTick = int24(bound(int256(minTick), TickMath.minUsableTick(TICK_SPACING), int256(-TICK_SPACING)));
         maxTick = int24(bound(int256(maxTick), int256(TICK_SPACING), TickMath.maxUsableTick(TICK_SPACING)));
-        liquidity = uint128(bound(uint256(liquidity), 1e18, 100_000e18));
+        liquidity = uint128(bound(uint256(liquidity), 10e18, 100_000e18));
 
         minTick = (minTick / TICK_SPACING) * TICK_SPACING;
         maxTick = (maxTick / TICK_SPACING) * TICK_SPACING;
@@ -107,20 +107,21 @@ contract Handler is CommonBase, StdCheats, StdUtils {
         positions[msg.sender].push(Position({poolKey: key, tickLower: minTick, tickUpper: maxTick}));
     }
 
-    // function swap(int256 amountSpecified, bool zeroForOne) internal {
-    //     amountSpecified = bound(-10e18, 10e18);
+    function swap(int256 amountSpecified, bool zeroForOne) public {
+        calls["swap"]++;
+        amountSpecified = bound(amountSpecified, -10e18, 10e18);
 
-    //     IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
-    //         zeroForOne: zeroForOne,
-    //         amountSpecified: amountSpecified,
-    //         sqrtPriceLimitX96: zeroForOne ? MIN_PRICE_LIMIT : MAX_PRICE_LIMIT // unlimited impact
-    //     });
+        IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
+            zeroForOne: zeroForOne,
+            amountSpecified: amountSpecified,
+            sqrtPriceLimitX96: zeroForOne ? MIN_PRICE_LIMIT : MAX_PRICE_LIMIT // unlimited impact
+        });
 
-    //     PoolSwapTest.TestSettings memory testSettings =
-    //         PoolSwapTest.TestSettings({withdrawTokens: true, settleUsingTransfer: true, currencyAlreadySent: false});
+        PoolSwapTest.TestSettings memory testSettings =
+            PoolSwapTest.TestSettings({withdrawTokens: true, settleUsingTransfer: true, currencyAlreadySent: false});
 
-    //     swapRouter.swap(key, params, testSettings, ZERO_BYTES);
-    // }
+        swapRouter.swap(key, params, testSettings, ZERO_BYTES);
+    }
 
     function collectFees() public {
         calls["collectFees"]++;
@@ -142,6 +143,7 @@ contract Handler is CommonBase, StdCheats, StdUtils {
         console2.log("Call summary:");
         console2.log("-------------------");
         console2.log("mint", calls["mint"]);
+        console2.log("swap", calls["swap"]);
         console2.log("collectFees", calls["collectFees"]);
         console2.log("-------------------");
     }
