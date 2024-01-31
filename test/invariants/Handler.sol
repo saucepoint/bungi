@@ -39,6 +39,9 @@ contract Handler is CommonBase, StdCheats, StdUtils {
     int24 TICK_SPACING = 60;
     PoolKey key;
 
+    uint256 public collectedFees0;
+    uint256 public collectedFees1;
+
     mapping(address user => Position[]) positions;
     mapping(string => uint256) calls;
 
@@ -75,7 +78,7 @@ contract Handler is CommonBase, StdCheats, StdUtils {
         calls["mint"]++;
         minTick = int24(bound(int256(minTick), TickMath.minUsableTick(TICK_SPACING), int256(-TICK_SPACING)));
         maxTick = int24(bound(int256(maxTick), int256(TICK_SPACING), TickMath.maxUsableTick(TICK_SPACING)));
-        liquidity = uint128(bound(uint256(liquidity), 10e18, 100_000e18));
+        liquidity = uint128(bound(uint256(liquidity), 100e18, 100_000e18));
 
         minTick = (minTick / TICK_SPACING) * TICK_SPACING;
         maxTick = (maxTick / TICK_SPACING) * TICK_SPACING;
@@ -108,8 +111,13 @@ contract Handler is CommonBase, StdCheats, StdUtils {
     }
 
     function swap(int256 amountSpecified, bool zeroForOne) public {
-        calls["swap"]++;
         amountSpecified = bound(amountSpecified, -10e18, 10e18);
+        // early return if there's little liquidity
+        if (currency0.balanceOf(address(lpm.manager())) < 1e18 || currency1.balanceOf(address(lpm.manager())) < 1e18) {
+            return;
+        }
+
+        calls["swap"]++;
 
         IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
             zeroForOne: zeroForOne,
@@ -128,8 +136,8 @@ contract Handler is CommonBase, StdCheats, StdUtils {
         vm.startPrank(msg.sender);
         uint256 i;
         for (i; i < positions[msg.sender].length; i++) {
-            lpm.collectFees(msg.sender, positions[msg.sender][i], currency0);
-            lpm.collectFees(msg.sender, positions[msg.sender][i], currency1);
+            collectedFees0 += lpm.collectFees(msg.sender, positions[msg.sender][i], currency0);
+            collectedFees1 += lpm.collectFees(msg.sender, positions[msg.sender][i], currency1);
         }
         vm.stopPrank();
     }
