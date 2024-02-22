@@ -36,11 +36,14 @@ contract Handler is CommonBase, StdCheats, StdUtils {
 
     Currency currency0;
     Currency currency1;
-    int24 TICK_SPACING = 60;
-    PoolKey key;
+    int24 public TICK_SPACING = 60;
+    uint24 public FEE = 3000;
+    PoolKey public key;
 
     uint256 public collectedFees0;
     uint256 public collectedFees1;
+    uint256 public swapFees0;
+    uint256 public swapFees1;
 
     mapping(address user => Position[]) positions;
     mapping(string => uint256) calls;
@@ -62,7 +65,7 @@ contract Handler is CommonBase, StdCheats, StdUtils {
         currency1 = _currency1;
 
         // create the pool
-        key = PoolKey(currency0, currency1, 3000, 60, IHooks(address(0x0)));
+        key = PoolKey(currency0, currency1, FEE, TICK_SPACING, IHooks(address(0x0)));
         _initializeRouter.initialize(key, Constants.SQRT_RATIO_1_1, ZERO_BYTES);
 
         // approvals for swaps

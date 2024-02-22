@@ -237,7 +237,10 @@ contract LiquidityPositionManager is ERC6909TokenSupply {
         );
     }
 
-    function collectFees(address owner, Position calldata position, Currency currency) external {
+    function collectFees(address owner, Position calldata position, Currency currency)
+        external
+        returns (uint256 feeAmount)
+    {
         if (!(msg.sender == owner || isOperator[owner][msg.sender])) revert InsufficientPermission();
 
         unchecked {
@@ -251,12 +254,12 @@ contract LiquidityPositionManager is ERC6909TokenSupply {
 
         uint256 feesPerLiq = feesPerLiquidity[epoch][tokenId][currency]
             - feesPerLiquidity[lastClaimedEpoch[owner][tokenId][currency]][tokenId][currency];
-        uint256 amount = balanceOf[owner][tokenId].mulWadDown(feesPerLiq);
+        feeAmount = balanceOf[owner][tokenId].mulWadDown(feesPerLiq);
         // console2.log("\tLiq Bal", balanceOf[owner][tokenId]);
         // console2.log("\tfeePerLiq", feesPerLiq);
         // console2.log("\tSending", amount);
         lastClaimedEpoch[owner][tokenId][position.poolKey.currency0] = epoch;
-        currency.transfer(msg.sender, amount);
+        currency.transfer(msg.sender, feeAmount);
     }
 
     // --- ERC-6909 --- //
